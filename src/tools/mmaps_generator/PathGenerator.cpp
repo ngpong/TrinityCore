@@ -25,6 +25,11 @@
 #include <boost/filesystem.hpp>
 #include <unordered_map>
 
+constexpr char Readme[] =
+{
+#include "Info/readme.txt"
+};
+
 using namespace MMAP;
 
 namespace
@@ -254,6 +259,12 @@ bool handleArgs(int argc, char** argv,
         {
             allowDebug = true;
         }
+        else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-?"))
+        {
+            printf("%s\n", Readme);
+            silent = true;
+            return false;
+        }
         else
         {
             int map = atoi(argv[i]);
@@ -362,3 +373,9 @@ int main(int argc, char** argv)
         printf("Finished. MMAPS were built in %s\n", secsToTimeString(GetMSTimeDiffToNow(start) / 1000).c_str());
     return 0;
 }
+
+#if TRINITY_PLATFORM == TRINITY_PLATFORM_WINDOWS
+#include "WheatyExceptionReport.h"
+// must be at end of file because of init_seg pragma
+INIT_CRASH_HANDLER();
+#endif

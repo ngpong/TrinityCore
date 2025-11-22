@@ -42,7 +42,7 @@ void Map::ScriptsStart(std::map<uint32, std::multimap<uint32, ScriptInfo>> const
     // prepare static data
     ObjectGuid sourceGUID = source ? source->GetGUID() : ObjectGuid::Empty; //some script commands doesn't have source
     ObjectGuid targetGUID = target ? target->GetGUID() : ObjectGuid::Empty;
-    ObjectGuid ownerGUID = (source && source->GetTypeId() == TYPEID_ITEM) ? ((Item*)source)->GetOwnerGUID() : ObjectGuid::Empty;
+    ObjectGuid ownerGUID = [&] { if (Item* item = Object::ToItem(source)) return item->GetOwnerGUID(); return ObjectGuid::Empty; }();
 
     ///- Schedule script execution for all scripts in the script map
     ScriptMap const* s2 = &(s->second);
@@ -77,7 +77,7 @@ void Map::ScriptCommandStart(ScriptInfo const& script, uint32 delay, Object* sou
     // prepare static data
     ObjectGuid sourceGUID = source ? source->GetGUID() : ObjectGuid::Empty;
     ObjectGuid targetGUID = target ? target->GetGUID() : ObjectGuid::Empty;
-    ObjectGuid ownerGUID = (source && source->GetTypeId() == TYPEID_ITEM) ? ((Item*)source)->GetOwnerGUID() : ObjectGuid::Empty;
+    ObjectGuid ownerGUID = [&] { if (Item* item = Object::ToItem(source)) return item->GetOwnerGUID(); return ObjectGuid::Empty; }();
 
     ScriptAction sa;
     sa.sourceGUID = sourceGUID;
@@ -113,10 +113,10 @@ inline Player* Map::_GetScriptPlayerSourceOrTarget(Object* source, Object* targe
             player = source->ToPlayer();
 
         if (!player)
-            TC_LOG_ERROR("scripts", "{} neither source nor target object is player (source: TypeId: {}, Entry: {}, GUID: {}; target: TypeId: {}, Entry: {}, GUID: {}), skipping.",
+            TC_LOG_ERROR("scripts", "{} neither source nor target object is player (source: TypeId: {}, Entry: {}, {}; target: TypeId: {}, Entry: {}, {}), skipping.",
                 scriptInfo->GetDebugInfo().c_str(),
-                source ? source->GetTypeId() : 0, source ? source->GetEntry() : 0, source ? source->GetGUID().GetCounter() : 0,
-                target ? target->GetTypeId() : 0, target ? target->GetEntry() : 0, target ? target->GetGUID().GetCounter() : 0);
+                source ? source->GetTypeId() : 0, source ? source->GetEntry() : 0, (source ? source->GetGUID() : ObjectGuid::Empty).ToString().c_str(),
+                target ? target->GetTypeId() : 0, target ? target->GetEntry() : 0, (target ? target->GetGUID() : ObjectGuid::Empty).ToString().c_str());
     }
     return player;
 }
@@ -146,10 +146,10 @@ inline Creature* Map::_GetScriptCreatureSourceOrTarget(Object* source, Object* t
         }
 
         if (!creature)
-            TC_LOG_ERROR("scripts", "{} neither source nor target are creatures (source: TypeId: {}, Entry: {}, GUID: {}; target: TypeId: {}, Entry: {}, GUID: {}), skipping.",
+            TC_LOG_ERROR("scripts", "{} neither source nor target are creatures (source: TypeId: {}, Entry: {}, {}; target: TypeId: {}, Entry: {}, {}), skipping.",
                 scriptInfo->GetDebugInfo().c_str(),
-                source ? source->GetTypeId() : 0, source ? source->GetEntry() : 0, source ? source->GetGUID().GetCounter() : 0,
-                target ? target->GetTypeId() : 0, target ? target->GetEntry() : 0, target ? target->GetGUID().GetCounter() : 0);
+                source ? source->GetTypeId() : 0, source ? source->GetEntry() : 0, (source ? source->GetGUID() : ObjectGuid::Empty).ToString().c_str(),
+                target ? target->GetTypeId() : 0, target ? target->GetEntry() : 0, (target ? target->GetGUID() : ObjectGuid::Empty).ToString().c_str());
     }
     return creature;
 }
@@ -179,10 +179,10 @@ inline GameObject* Map::_GetScriptGameObjectSourceOrTarget(Object* source, Objec
         }
 
         if (!gameobject)
-            TC_LOG_ERROR("scripts", "{} neither source nor target are gameobjects (source: TypeId: {}, Entry: {}, GUID: {}; target: TypeId: {}, Entry: {}, GUID: {}), skipping.",
+            TC_LOG_ERROR("scripts", "{} neither source nor target are gameobjects (source: TypeId: {}, Entry: {}, {}; target: TypeId: {}, Entry: {}, {}), skipping.",
                 scriptInfo->GetDebugInfo().c_str(),
-                source ? source->GetTypeId() : 0, source ? source->GetEntry() : 0, source ? source->GetGUID().GetCounter() : 0,
-                target ? target->GetTypeId() : 0, target ? target->GetEntry() : 0, target ? target->GetGUID().GetCounter() : 0);
+                source ? source->GetTypeId() : 0, source ? source->GetEntry() : 0, (source ? source->GetGUID() : ObjectGuid::Empty).ToString().c_str(),
+                target ? target->GetTypeId() : 0, target ? target->GetEntry() : 0, (target ? target->GetGUID() : ObjectGuid::Empty).ToString().c_str());
     }
     return gameobject;
 }
@@ -192,7 +192,7 @@ inline Unit* Map::_GetScriptUnit(Object* obj, bool isSource, ScriptInfo const* s
     Unit* unit = nullptr;
     if (!obj)
         TC_LOG_ERROR("scripts", "{} {} object is NULL.", scriptInfo->GetDebugInfo(), isSource ? "source" : "target");
-    else if (!obj->isType(TYPEMASK_UNIT))
+    else if (!obj->IsUnit())
         TC_LOG_ERROR("scripts", "{} {} object is not unit {}, skipping.",
             scriptInfo->GetDebugInfo(), isSource ? "source" : "target", obj->GetGUID().ToString());
     else
@@ -268,7 +268,7 @@ inline void Map::_ScriptProcessDoor(Object* source, Object* target, ScriptInfo c
         TC_LOG_ERROR("scripts", "{} door guid is not specified.", scriptInfo->GetDebugInfo());
     else if (!source)
         TC_LOG_ERROR("scripts", "{} source object is NULL.", scriptInfo->GetDebugInfo());
-    else if (!source->isType(TYPEMASK_UNIT))
+    else if (!source->IsUnit())
         TC_LOG_ERROR("scripts", "{} source object is not unit {}, skipping.", scriptInfo->GetDebugInfo(),
             source->GetGUID().ToString());
     else
@@ -289,9 +289,8 @@ inline void Map::_ScriptProcessDoor(Object* source, Object* target, ScriptInfo c
             {
                 pDoor->UseDoorOrButton(nTimeToToggle);
 
-                if (target && target->isType(TYPEMASK_GAMEOBJECT))
+                if (GameObject* goTarget = Object::ToGameObject(target))
                 {
-                    GameObject* goTarget = target->ToGameObject();
                     if (goTarget && goTarget->GetGoType() == GAMEOBJECT_TYPE_BUTTON)
                         goTarget->UseDoorOrButton(nTimeToToggle);
                 }
@@ -323,7 +322,7 @@ void Map::ScriptsProcess()
         ScriptAction const& step = iter->second;
 
         Object* source = nullptr;
-        if (step.sourceGUID)
+        if (!step.sourceGUID.IsEmpty())
         {
             switch (step.sourceGUID.GetHigh())
             {
@@ -341,8 +340,8 @@ void Map::ScriptsProcess()
                 case HighGuid::Player:
                     source = GetPlayer(step.sourceGUID);
                     break;
-                case HighGuid::Transport:
                 case HighGuid::GameObject:
+                case HighGuid::Transport:
                     source = GetGameObject(step.sourceGUID);
                     break;
                 case HighGuid::Corpse:
@@ -359,7 +358,7 @@ void Map::ScriptsProcess()
         }
 
         WorldObject* target = nullptr;
-        if (step.targetGUID)
+        if (!step.targetGUID.IsEmpty())
         {
             switch (step.targetGUID.GetHigh())
             {
@@ -370,11 +369,11 @@ void Map::ScriptsProcess()
                 case HighGuid::Pet:
                     target = GetPet(step.targetGUID);
                     break;
-                case HighGuid::Player:                       // empty GUID case also
+                case HighGuid::Player:
                     target = GetPlayer(step.targetGUID);
                     break;
-                case HighGuid::Transport:
                 case HighGuid::GameObject:
+                case HighGuid::Transport:
                     target = GetGameObject(step.targetGUID);
                     break;
                 case HighGuid::Corpse:
@@ -827,6 +826,7 @@ void Map::ScriptsProcess()
                     {
                         return pair.second->IsAlive();
                     });
+
                     cTarget = creatureItr != creatureBounds.second ? creatureItr->second : creatureBounds.first->second;
                 }
 

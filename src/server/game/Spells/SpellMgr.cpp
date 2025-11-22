@@ -177,7 +177,7 @@ uint32 SpellMgr::GetSpellIdForDifficulty(uint32 spellId, WorldObject const* cast
     if (!GetSpellInfo(spellId))
         return spellId;
 
-    if (!caster || !caster->GetMap() || !caster->GetMap()->IsDungeon())
+    if (!caster || !caster->GetMap() || (!caster->GetMap()->IsDungeon() && !caster->GetMap()->IsBattleground()))
         return spellId;
 
     uint32 mode = uint32(caster->GetMap()->GetSpawnMode());
@@ -519,22 +519,6 @@ bool SpellMgr::CanSpellTriggerProcOnEvent(SpellProcEntry const& procEntry, ProcE
     // always trigger for these types
     if (eventInfo.GetTypeMask() & (PROC_FLAG_KILLED | PROC_FLAG_KILL | PROC_FLAG_DEATH))
         return true;
-
-    // do triggered cast checks
-    // Do not consider autoattacks as triggered spells
-    if (!(procEntry.AttributesMask & PROC_ATTR_TRIGGERED_CAN_PROC) && !(eventInfo.GetTypeMask() & AUTO_ATTACK_PROC_FLAG_MASK))
-    {
-        if (Spell const* spell = eventInfo.GetProcSpell())
-        {
-            if (spell->IsTriggered())
-            {
-                SpellInfo const* spellInfo = spell->GetSpellInfo();
-                if (!spellInfo->HasAttribute(SPELL_ATTR3_TRIGGERED_CAN_TRIGGER_PROC_2) &&
-                    !spellInfo->HasAttribute(SPELL_ATTR2_TRIGGERED_CAN_TRIGGER_PROC))
-                    return false;
-            }
-        }
-    }
 
     // check school mask (if set) for other trigger types
     if (procEntry.SchoolMask && !(eventInfo.GetSchoolMask() & procEntry.SchoolMask))
@@ -1973,6 +1957,10 @@ void SpellMgr::LoadSkillLineAbilityMap()
         ++count;
     }
 
+    // Don't autolearn secondary variant of Seal of Righteousness - it is learned together with Judgement of Light
+    if (SkillLineAbilityEntry* sealOfRighteousnessR2 = const_cast<SkillLineAbilityEntry*>(sSkillLineAbilityStore.LookupEntry(11957)))
+        sealOfRighteousnessR2->AcquireMethod = 0;
+
     TC_LOG_INFO("server.loading", ">> Loaded {} SkillLineAbility MultiMap Data in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
@@ -2921,7 +2909,6 @@ void SpellMgr::LoadSpellInfoCustomAttributes()
     }
 
     // remove attribute from spells that can't crit
-    // and mark triggering spell (instead of triggered spell) for spells with SPELL_ATTR4_INHERIT_CRIT_FROM_AURA
     for (SpellInfo* spellInfo : mSpellInfoMap)
     {
         if (!spellInfo)
@@ -2929,28 +2916,6 @@ void SpellMgr::LoadSpellInfoCustomAttributes()
 
         if (spellInfo->HasAttribute(SPELL_ATTR2_CANT_CRIT))
             spellInfo->AttributesCu &= ~SPELL_ATTR0_CU_CAN_CRIT;
-        else if (spellInfo->HasAttribute(SPELL_ATTR4_INHERIT_CRIT_FROM_AURA))
-        {
-            bool found = false;
-            for (SpellEffectInfo const& spellEffectInfo : spellInfo->GetEffects())
-            {
-                switch (spellEffectInfo.ApplyAuraName)
-                {
-                    case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
-                    case SPELL_AURA_PERIODIC_TRIGGER_SPELL_FROM_CLIENT:
-                    case SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
-                        if (SpellInfo* triggerSpell = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellEffectInfo.TriggerSpell)))
-                            if (triggerSpell->HasAttribute(SPELL_ATTR0_CU_CAN_CRIT))
-                                found = true;
-                        break;
-                    default:
-                        continue;
-                }
-            }
-
-            if (found)
-                spellInfo->AttributesCu |= SPELL_ATTR0_CU_CAN_CRIT;
-        }
     }
 
     // add custom attribute to liquid auras
@@ -3075,20 +3040,10 @@ void SpellMgr::LoadSpellInfoCorrections()
         });
     }
 
-    // Allows those to crit
+    // this one is here because we have no SP bonus for dmgclass none spell
+    // but this one should since it's DBC data
     ApplySpellFix({
-        379,   // Earth Shield
-        33778, // Lifebloom Final Bloom
-
         52042, // Healing Stream Totem
-        // this one is here because we have no SP bonus for dmgclass none spell
-        // but this one should since it's DBC data, it won't crit because it already has can't crit attr
-
-        64844, // Divine Hymn
-        71607, // Item - Bauble of True Blood 10m
-        71646, // Item - Bauble of True Blood 25m
-        71610, // Item - Althor's Abacus trigger 10m
-        71641  // Item - Althor's Abacus trigger 25m
     }, [](SpellInfo* spellInfo)
     {
         // We need more spells to find a general way (if there is any)
@@ -3220,7 +3175,9 @@ void SpellMgr::LoadSpellInfoCorrections()
     ApplySpellFix({
         42818, // Headless Horseman - Wisp Flight Port
         42821, // Headless Horseman - Wisp Flight Missile
-        17678  // Despawn Spectral Combatants
+        17678, // Despawn Spectral Combatants
+        720,   // Entangle
+        731    // Entangle
     }, [](SpellInfo* spellInfo)
     {
         spellInfo->RangeEntry = sSpellRangeStore.LookupEntry(6); // 100 yards
@@ -3268,7 +3225,7 @@ void SpellMgr::LoadSpellInfoCorrections()
     {
         // due to discrepancies between ranks
         spellInfo->EquippedItemSubClassMask = 0x0000FC33;
-        spellInfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED;
+        spellInfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_FROM_PROCS;
     });
 
     ApplySpellFix({
@@ -3281,7 +3238,7 @@ void SpellMgr::LoadSpellInfoCorrections()
     }, [](SpellInfo* spellInfo)
     {
         // Entries were not updated after spell effect change, we have to do that manually :/
-        spellInfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED;
+        spellInfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_FROM_PROCS;
     });
 
     ApplySpellFix({
@@ -3564,6 +3521,15 @@ void SpellMgr::LoadSpellInfoCorrections()
     }, [](SpellInfo* spellInfo)
     {
         spellInfo->_GetEffect(EFFECT_0).RadiusEntry = sSpellRadiusStore.LookupEntry(EFFECT_RADIUS_150_YARDS); // 150yd
+    });
+
+    // Radius in DBC is not enough
+    ApplySpellFix({
+        36854, // Channel
+        36856  // Channel
+    }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->RangeEntry = sSpellRangeStore.LookupEntry(5); // 40yd
     });
 
     // Master Shapeshifter: missing stance data for forms other than bear - bear version has correct data
@@ -4947,6 +4913,52 @@ void SpellMgr::LoadSpellInfoCorrections()
         spellInfo->RangeEntry = sSpellRangeStore.LookupEntry(5); // 40yd
     });
 
+    // Pilgrim's Bounty - Candied Sweet Potato
+    ApplySpellFix({ 65418 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->_GetEffect(EFFECT_2).TriggerSpell = 65410;
+    });
+
+    // Pilgrim's Bounty - Spice Bread Stuffing
+    ApplySpellFix({ 65419 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->_GetEffect(EFFECT_2).TriggerSpell = 65416;
+    });
+
+    // Pilgrim's Bounty - Cranberry Chutney
+    ApplySpellFix({ 65420 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->_GetEffect(EFFECT_2).TriggerSpell = 65412;
+    });
+
+    // Pilgrim's Bounty - Pumpkin Pie
+    ApplySpellFix({ 65421 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->_GetEffect(EFFECT_2).TriggerSpell = 65415;
+    });
+
+    // Pilgrim's Bounty - Slow-Roasted Turkey
+    ApplySpellFix({ 65422 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->_GetEffect(EFFECT_2).TriggerSpell = 65414;
+    });
+
+    ApplySpellFix({
+        24869, // Bobbing Apple, Bread of the Dead, Winter Veil Cookie
+        61874, // Noblegarden Chocolate
+        71068, // Sweet Surprise
+        71071, // Very Berry Cream
+        71073, // Dark Desire
+        71074  // Buttermilk Delight
+    }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->_GetEffect(EFFECT_1).Effect          = SPELL_EFFECT_APPLY_AURA;
+        spellInfo->_GetEffect(EFFECT_1).TargetA         = SpellImplicitTargetInfo(TARGET_UNIT_CASTER);
+        spellInfo->_GetEffect(EFFECT_1).ApplyAuraName   = SPELL_AURA_PERIODIC_TRIGGER_SPELL;
+        spellInfo->_GetEffect(EFFECT_1).Amplitude       = 10 * IN_MILLISECONDS;
+        spellInfo->_GetEffect(EFFECT_1).TriggerSpell    = 24870;
+    });
+
     for (uint32 i = 0; i < GetSpellInfoStoreSize(); ++i)
     {
         SpellInfo* spellInfo = mSpellInfoMap[i];
@@ -5029,10 +5041,6 @@ void SpellMgr::LoadSpellInfoCorrections()
                     spellInfo->SpellFamilyFlags[0] |= 0x40;
                 break;
         }
-
-        // allows those to calculate proper crit chance, that needs to be passed on to triggered spell
-        if (spellInfo->HasAttribute(SPELL_ATTR4_INHERIT_CRIT_FROM_AURA) && spellInfo->DmgClass == SPELL_DAMAGE_CLASS_NONE)
-            spellInfo->DmgClass = SPELL_DAMAGE_CLASS_MAGIC;
     }
 
     if (SummonPropertiesEntry* properties = const_cast<SummonPropertiesEntry*>(sSummonPropertiesStore.LookupEntry(121)))

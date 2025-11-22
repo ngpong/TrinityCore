@@ -27,11 +27,11 @@
 
 enum COG_Paths
 {
-    STORMWIND_PATH  = 80500,
-    GOLDSHIRE_PATH  = 80501,
-    WOODS_PATH      = 80502,
-    HOUSE_PATH      = 80503,
-    LISA_PATH       = 80700
+    STORMWIND_PATH  = 644000,
+    GOLDSHIRE_PATH  = 644008,
+    WOODS_PATH      = 644016,
+    HOUSE_PATH      = 644024,
+    LISA_PATH       = 645600
 };
 
 enum COG_Waypoints
@@ -114,8 +114,8 @@ struct npc_cameron : public ScriptedAI
         // first we break formation because children will need to move on their own now
         for (auto guid : _childrenGUIDs)
             if (Creature* child = ObjectAccessor::GetCreature(*me, guid))
-                if (child->GetFormation())
-                    child->GetFormation()->RemoveMember(child);
+                if (CreatureGroup* creatureGroup = child->GetFormation())
+                    sFormationMgr->RemoveCreatureFromGroup(creatureGroup, child);
 
         // Move each child to an random position
         for (uint32 i = 0; i < _childrenGUIDs.size(); ++i)

@@ -874,7 +874,7 @@ private:
         // 将 libscripts_<name>.so 拷贝至 ${temporary_cache_path_}/libscripts_<name>.<_unique_library_name_counter>.so
         {
             boost::system::error_code code;
-            fs::copy_file(path, cache_path, fs::copy_option::fail_if_exists, code);
+            fs::copy_file(path, cache_path, code);
             if (code)
             {
                 TC_LOG_FATAL("scripts.hotswap", ">> Failed to create cache entry for module "
@@ -1146,7 +1146,7 @@ private:
             if (itr != _known_modules_build_directives.end())
                 return itr->second;
             else // If no build directive of the module was found use the one from the game library
-                return _BUILD_DIRECTIVE;
+                return TRINITY_BUILD_TYPE;
         }();
 
         // Initiate the new build job

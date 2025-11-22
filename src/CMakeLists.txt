@@ -8,18 +8,9 @@
 # WITHOUT ANY WARRANTY, to the extent permitted by law; without even the
 # implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-if(WIN32 AND MSVC)
-  set(sources_windows
-    ${CMAKE_SOURCE_DIR}/src/common/Debugging/WheatyExceptionReport.cpp
-    ${CMAKE_SOURCE_DIR}/src/common/Debugging/WheatyExceptionReport.h
-    ${CMAKE_SOURCE_DIR}/src/common/WindowsSettings.manifest
-  )
-endif()
-
 # 1. 创建 recvision_data.h (真实文件由 src/cmake/genrev.cmake 生成)
 # 2. 为什么不在 genrev.cmake 文件里面直接创建呢？
 add_subdirectory(genrev)
-
 # 1. 创建 common 的构建 target
 # 2. 添加 TRINITY_API_EXPORT_COMMON 宏定义
 # 3. 如果支持则设置 precompile header

@@ -17,6 +17,7 @@
 
 #include "GossipDef.h"
 #include "Log.h"
+#include "NPCPackets.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "QuestDef.h"
@@ -203,7 +204,7 @@ void PlayerMenu::SendGossipMenu(uint32 titleTextId, ObjectGuid objectGUID)
     _gossipMenu.SetSenderGUID(objectGUID);
 
     WorldPacket data(SMSG_GOSSIP_MESSAGE, 100);         // guess size
-    data << uint64(objectGUID);
+    data << objectGUID;
     data << uint32(_gossipMenu.GetMenuId());            // new 2.4.0
     data << uint32(titleTextId);
     data << uint32(_gossipMenu.GetMenuItemCount());     // max count 0x10
@@ -259,28 +260,27 @@ void PlayerMenu::SendCloseGossip()
 
 void PlayerMenu::SendPointOfInterest(uint32 id) const
 {
-    PointOfInterest const* poi = sObjectMgr->GetPointOfInterest(id);
-    if (!poi)
+    PointOfInterest const* pointOfInterest = sObjectMgr->GetPointOfInterest(id);
+    if (!pointOfInterest)
     {
         TC_LOG_ERROR("sql.sql", "Request to send non-existing POI (Id: {}), ignored.", id);
         return;
     }
 
-    std::string name = poi->Name;
+    WorldPackets::NPC::GossipPOI packet;
+    packet.Name = pointOfInterest->Name;
+
     LocaleConstant localeConstant = _session->GetSessionDbLocaleIndex();
     if (localeConstant != LOCALE_enUS)
         if (PointOfInterestLocale const* localeData = sObjectMgr->GetPointOfInterestLocale(id))
-            ObjectMgr::GetLocaleString(localeData->Name, localeConstant, name);
+            ObjectMgr::GetLocaleString(localeData->Name, localeConstant, packet.Name);
 
-    WorldPacket data(SMSG_GOSSIP_POI, 4 + 4 + 4 + 4 + 4 + 10);  // guess size
-    data << uint32(poi->Flags);
-    data << float(poi->PositionX);
-    data << float(poi->PositionY);
-    data << uint32(poi->Icon);
-    data << uint32(poi->Importance);
-    data << name;
+    packet.Flags = pointOfInterest->Flags;
+    packet.Pos.Pos.Relocate(pointOfInterest->PositionX, pointOfInterest->PositionY);
+    packet.Icon = pointOfInterest->Icon;
+    packet.Importance = pointOfInterest->Importance;
 
-    _session->SendPacket(&data);
+    _session->SendPacket(packet.Write());
 }
 
 /*********************************************************/
@@ -329,7 +329,7 @@ void QuestMenu::ClearMenu()
 void PlayerMenu::SendQuestGiverQuestList(QEmote const& eEmote, const std::string& Title, ObjectGuid guid)
 {
     WorldPacket data(SMSG_QUESTGIVER_QUEST_LIST, 100);    // guess size
-    data << uint64(guid);
+    data << guid;
 
     if (QuestGreeting const* questGreeting = sObjectMgr->GetQuestGreeting(guid))
     {
@@ -388,7 +388,7 @@ void PlayerMenu::SendQuestGiverQuestList(QEmote const& eEmote, const std::string
 void PlayerMenu::SendQuestGiverStatus(uint8 questStatus, ObjectGuid npcGUID) const
 {
     WorldPacket data(SMSG_QUESTGIVER_STATUS, 9);
-    data << uint64(npcGUID);
+    data << npcGUID;
     data << uint8(questStatus);
 
     _session->SendPacket(&data);
@@ -503,7 +503,7 @@ void PlayerMenu::SendQuestGiverRequestItems(Quest const* quest, ObjectGuid npcGU
     }
 
     WorldPacket data(SMSG_QUESTGIVER_REQUEST_ITEMS, 50);    // guess size
-    data << uint64(npcGUID);
+    data << npcGUID;
     data << uint32(quest->GetQuestId());
     data << questTitle;
     data << requestItemsText;

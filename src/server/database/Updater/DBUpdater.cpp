@@ -181,7 +181,7 @@ bool DBUpdater<T>::Create(DatabaseWorkerPool<T>& pool)
         return false;
     }
 
-    file << "CREATE DATABASE `" << pool.GetConnectionInfo()->database << "` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci\n\n";
+    file << "CREATE DATABASE `" << pool.GetConnectionInfo()->database << "` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci\n\n";
 
     file.close();
 
@@ -388,6 +388,14 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
     if (ssl == "ssl")
         args.emplace_back("--ssl-mode=REQUIRED");
 
+#if MYSQL_VERSION_ID >= 90400
+
+    // Since MySQL 9.4 command line client commands are disabled by default
+    // We need to enable them to use `SOURCE` command
+    args.emplace_back("--commands=ON");
+
+#endif
+
 #else
 
     if (ssl == "ssl")
@@ -404,7 +412,7 @@ void DBUpdater<T>::ApplyFile(DatabaseWorkerPool<T>& pool, std::string const& hos
         args.emplace_back(database);
 
     // Invokes a mysql process which doesn't leak credentials to logs
-    int const ret = Trinity::StartProcess(DBUpdaterUtil::GetCorrectedMySQLExecutable(), args,
+    int32 const ret = Trinity::StartProcess(DBUpdaterUtil::GetCorrectedMySQLExecutable(), std::move(args),
                                  "sql.updates", "", true);
 
     if (ret != EXIT_SUCCESS)

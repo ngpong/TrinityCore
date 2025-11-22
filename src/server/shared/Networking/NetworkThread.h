@@ -124,7 +124,7 @@ protected:
         TC_LOG_DEBUG("misc", "Network Thread Starting");
 
         // 每 1ms 触发一次异步回调
-        _updateTimer.expires_from_now(boost::posix_time::milliseconds(1));
+        _updateTimer.expires_after(1ms);
         _updateTimer.async_wait([this](boost::system::error_code const&) { Update(); });
         _ioContext.run();
 
@@ -139,7 +139,7 @@ protected:
             return;
 
         // 延续异步调用，还是 1ms 逻辑
-        _updateTimer.expires_from_now(boost::posix_time::milliseconds(1));
+        _updateTimer.expires_after(1ms);
         _updateTimer.async_wait([this](boost::system::error_code const&) { Update(); });
 
         // 处理新加(accept)进来的连接(放在预备队列_newSockets里面)，并将它们接受进处理队列 _sockets 中

@@ -42,7 +42,7 @@
 #include <boost/accumulators/statistics.hpp>
 #include <boost/circular_buffer.hpp>
 
-void WorldSession::HandleMoveWorldportAckOpcode(WorldPacket & /*recvData*/)
+void WorldSession::HandleMoveWorldportAckOpcode(WorldPacket & /*recvPacket*/)
 {
     TC_LOG_DEBUG("network", "WORLD: got MSG_MOVE_WORLDPORT_ACK.");
     HandleMoveWorldportAck();
@@ -211,21 +211,21 @@ void WorldSession::HandleMoveWorldportAck()
     player->ProcessDelayedOperations();
 }
 
-void WorldSession::HandleMoveTeleportAck(WorldPacket& recvData)
+void WorldSession::HandleMoveTeleportAck(WorldPacket& recvPacket)
 {
     TC_LOG_DEBUG("network", "MSG_MOVE_TELEPORT_ACK");
     ObjectGuid guid;
 
-    recvData >> guid.ReadAsPacked();
+    recvPacket >> guid.ReadAsPacked();
 
     if (!IsRightUnitBeingMoved(guid))
     {
-        recvData.rfinish();                     // prevent warnings spam
+        recvPacket.rfinish();                     // prevent warnings spam
         return;
     }
 
     uint32 sequenceIndex, time;
-    recvData >> sequenceIndex >> time;
+    recvPacket >> sequenceIndex >> time;
 
     GameClient* client = GetGameClient();
     Unit* mover = client->GetActivelyMovedUnit();
@@ -266,17 +266,17 @@ void WorldSession::HandleMoveTeleportAck(WorldPacket& recvData)
     GetPlayer()->ProcessDelayedOperations();
 }
 
-void WorldSession::HandleMovementOpcodes(WorldPacket& recvData)
+void WorldSession::HandleMovementOpcodes(WorldPacket& recvPacket)
 {
-    uint16 opcode = recvData.GetOpcode();
+    uint16 opcode = recvPacket.GetOpcode();
 
     ObjectGuid guid;
-    recvData >> guid.ReadAsPacked();
+    recvPacket >> guid.ReadAsPacked();
 
     // 开始前的一些校验
     if (!IsRightUnitBeingMoved(guid))
     {
-        recvData.rfinish();                     // prevent warnings spam
+        recvPacket.rfinish();                     // prevent warnings spam
         return;
     }
 
@@ -288,7 +288,7 @@ void WorldSession::HandleMovementOpcodes(WorldPacket& recvData)
     // ignore, waiting processing in WorldSession::HandleMoveWorldportAckOpcode and WorldSession::HandleMoveTeleportAck
     if (plrMover && plrMover->IsBeingTeleported())
     {
-        recvData.rfinish();                     // prevent warnings spam
+        recvPacket.rfinish();                     // prevent warnings spam
         return;
     }
 
@@ -296,9 +296,9 @@ void WorldSession::HandleMovementOpcodes(WorldPacket& recvData)
 
     MovementInfo movementInfo;
     movementInfo.guid = guid;
-    ReadMovementInfo(recvData, &movementInfo);
+    ReadMovementInfo(recvPacket, &movementInfo);
 
-    recvData.rfinish();                         // prevent warnings spam
+    recvPacket.rfinish();                         // prevent warnings spam
 
     // 校验位置是否合法，不能超出地图边界
     if (!movementInfo.pos.IsPositionValid())
@@ -307,6 +307,10 @@ void WorldSession::HandleMovementOpcodes(WorldPacket& recvData)
     // 此处校验玩家如果存在移动样条且样条还未执行完毕的情况下则跳过
     if (!mover->movespline->Finalized())
         return;
+
+    // stop some emotes at player move
+    if (plrMover && (plrMover->GetEmoteState() != 0))
+        plrMover->SetEmoteState(EMOTE_ONESHOT_NONE);
 
     // 处理一些特殊情况，似乎是和交通工具或者传送相关的
     /* handle special cases */
@@ -367,28 +371,14 @@ void WorldSession::HandleMovementOpcodes(WorldPacket& recvData)
         mover->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_LANDING); // Parachutes
 
     /* process position-change */
-    WorldPacket data(opcode, recvData.size());
-
-    // 这个时间是客户端在发生位置变化那一刻的时间戳(客户端计算出来的)，这里加上了 _timeSyncClockDelta，表示时间同步差(考虑一些网络丢包的影响)，目的
-    // 主要还是为了辅助客户端执行外插值运算，且让时间戳可以更精准一些
-    int64 movementTime = (int64) movementInfo.time + _timeSyncClockDelta;
-    if (_timeSyncClockDelta == 0 || movementTime < 0 || movementTime > 0xFFFFFFFF)
-    {
-        TC_LOG_WARN("misc", "The computed movement time using clockDelta is erronous. Using fallback instead");
-        movementInfo.time = GameTime::GetGameTimeMS();
-    }
-    else
-    {
-        movementInfo.time = (uint32)movementTime;
-    }
-
     movementInfo.guid = mover->GetGUID();
+    movementInfo.time = AdjustClientMovementTime(movementInfo.time);
+    mover->m_movementInfo = movementInfo;
 
     // 发送位置信息给周边的玩家
+    WorldPacket data(opcode, recvPacket.size());
     WriteMovementInfo(&data, &movementInfo);
     mover->SendMessageToSet(&data, _player);
-
-    mover->m_movementInfo = movementInfo;
 
     // 一些交通工具相关的逻辑
     // Some vehicles allow the passenger to turn by himself
@@ -621,7 +611,7 @@ void WorldSession::HandleMoveNotActiveMover(WorldPacket &recvData)
 void WorldSession::HandleMountSpecialAnimOpcode(WorldPacket& /*recvData*/)
 {
     WorldPacket data(SMSG_MOUNTSPECIAL_ANIM, 8);
-    data << uint64(GetPlayer()->GetGUID());
+    data << GetPlayer()->GetGUID();
 
     GetPlayer()->SendMessageToSet(&data, false);
 }
@@ -909,9 +899,9 @@ void WorldSession::HandleSummonResponseOpcode(WorldPacket& recvData)
     if (!_player->IsAlive() || _player->IsInCombat())
         return;
 
-    ObjectGuid summoner_guid;
+    ObjectGuid summonerGuid;
     bool agree;
-    recvData >> summoner_guid;
+    recvData >> summonerGuid;
     recvData >> agree;
 
     _player->SummonIfPossible(agree);

@@ -95,7 +95,7 @@ AccountOpResult AccountMgr::DeleteAccount(uint32 accountId)
     {
         do
         {
-            ObjectGuid guid(HighGuid::Player, (*result)[0].GetUInt32());
+            ObjectGuid guid = ObjectGuid::Create<HighGuid::Player>((*result)[0].GetUInt32());
 
             // Kick if player is online
             if (Player* p = ObjectAccessor::FindConnectedPlayer(guid))
@@ -119,6 +119,10 @@ AccountOpResult AccountMgr::DeleteAccount(uint32 accountId)
     CharacterDatabase.Execute(stmt);
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHARACTER_BAN);
+    stmt->setUInt32(0, accountId);
+    CharacterDatabase.Execute(stmt);
+
+    stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_ACCOUNT_INSTANCE_LOCK_TIMES);
     stmt->setUInt32(0, accountId);
     CharacterDatabase.Execute(stmt);
 

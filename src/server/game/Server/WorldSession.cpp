@@ -26,6 +26,7 @@
 #include "CharacterPackets.h"
 #include "Config.h"
 #include "Common.h"
+#include "Containers.h"
 #include "DatabaseEnv.h"
 #include "DBCStructure.h"
 #include "GameClient.h"
@@ -188,21 +189,13 @@ std::string const & WorldSession::GetPlayerName() const
 
 std::string WorldSession::GetPlayerInfo() const
 {
-    std::ostringstream ss;
+    if (_player)
+        return Trinity::StringFormat("[Player: {} {}, Account: {}]", _player->GetName(), _player->GetGUID(), GetAccountId());
 
-    ss << "[Player: ";
-    if (!m_playerLoading && _player)
-        ss << _player->GetName() << ' ' << _player->GetGUID().ToString() << ", ";
+    if (m_playerLoading)
+        return Trinity::StringFormat("[Player: Logging in, Account: {}]", GetAccountId());
 
-    ss << "Account: " << GetAccountId() << "]";
-
-    return ss.str();
-}
-
-/// Get player guid if available. Use for logging purposes only
-ObjectGuid::LowType WorldSession::GetGUIDLow() const
-{
-    return GetPlayer() ? GetPlayer()->GetGUID().GetCounter() : 0;
+    return Trinity::StringFormat("[Player: Account: {}]", GetAccountId());
 }
 
 /// Send a packet to the client
@@ -510,7 +503,8 @@ void WorldSession::LogoutPlayer(bool save)
 
     if (_player)
     {
-        if (ObjectGuid lguid = _player->GetLootGUID())
+        ObjectGuid lguid = _player->GetLootGUID();
+        if (!lguid.IsEmpty())
             DoLootRelease(lguid);
 
         ///- If the player just died before logging out, make him appear as a ghost
@@ -538,15 +532,12 @@ void WorldSession::LogoutPlayer(bool save)
         if (Battleground* bg = _player->GetBattleground())
             bg->EventPlayerLoggedOut(_player);
 
-        ///- Teleport to home if the player is in an invalid instance
-        if (!_player->m_InstanceValid && !_player->IsGameMaster())
-            _player->TeleportTo(_player->m_homebindMapId, _player->m_homebindX, _player->m_homebindY, _player->m_homebindZ, _player->GetOrientation());
-
         sOutdoorPvPMgr->HandlePlayerLeaveZone(_player, _player->GetZoneId());
 
         for (int i=0; i < PLAYER_MAX_BATTLEGROUND_QUEUES; ++i)
         {
-            if (BattlegroundQueueTypeId bgQueueTypeId = _player->GetBattlegroundQueueTypeId(i))
+            BattlegroundQueueTypeId bgQueueTypeId = _player->GetBattlegroundQueueTypeId(i);
+            if (bgQueueTypeId != BATTLEGROUND_QUEUE_NONE)
             {
                 // track if player logs out after invited to join BG
                 if (_player->IsInvitedForBattlegroundQueueType(bgQueueTypeId) && sWorld->getBoolConfig(CONFIG_BATTLEGROUND_TRACK_DESERTERS))
@@ -573,7 +564,7 @@ void WorldSession::LogoutPlayer(bool save)
             guild->HandleMemberLogout(this);
 
         ///- Remove pet
-        _player->RemovePet(nullptr, PET_SAVE_AS_CURRENT, true);
+        _player->RemovePet(nullptr, PET_SAVE_AS_CURRENT);
 
         ///- Clear whisper whitelist
         _player->ClearWhisperWhiteList();
@@ -903,6 +894,66 @@ void WorldSession::SaveTutorialsData(CharacterDatabaseTransaction trans)
     m_TutorialsChanged &= ~TUTORIALS_FLAG_CHANGED;
 }
 
+void WorldSession::LoadInstanceTimeRestrictions(PreparedQueryResult result)
+{
+    if (!result)
+        return;
+
+    SystemTimePoint now = GameTime::GetSystemTime();
+    do
+    {
+        Field* fields = result->Fetch();
+        SystemTimePoint restrictionExpireTime = SystemTimePoint::clock::from_time_t(fields[1].GetUInt64());
+        if (restrictionExpireTime > now)
+            _instanceResetTimes.try_emplace(fields[0].GetUInt32(), restrictionExpireTime);
+    } while (result->NextRow());
+}
+
+void WorldSession::SaveInstanceTimeRestrictions(CharacterDatabaseTransaction trans)
+{
+    if (_instanceResetTimes.empty())
+        return;
+
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_ACCOUNT_INSTANCE_LOCK_TIMES);
+    stmt->setUInt32(0, GetAccountId());
+    trans->Append(stmt);
+
+    for (auto const& [instanceId, restrictionExpireTime] : _instanceResetTimes)
+    {
+        stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_ACCOUNT_INSTANCE_LOCK_TIMES);
+        stmt->setUInt32(0, GetAccountId());
+        stmt->setUInt32(1, instanceId);
+        stmt->setUInt64(2, SystemTimePoint::clock::to_time_t(restrictionExpireTime));
+        trans->Append(stmt);
+    }
+}
+
+bool WorldSession::UpdateAndCheckInstanceCount(uint32 instanceId)
+{
+    UpdateInstanceEnterTimes();
+
+    if (_instanceResetTimes.size() < sWorld->getIntConfig(CONFIG_MAX_INSTANCES_PER_HOUR))
+        return true;
+
+    if (instanceId == 0)
+        return false;
+
+    return _instanceResetTimes.contains(instanceId);
+}
+
+void WorldSession::AddInstanceEnterTime(uint32 instanceId, SystemTimePoint enterTime)
+{
+    _instanceResetTimes.try_emplace(instanceId, enterTime + 1h);
+}
+
+void WorldSession::UpdateInstanceEnterTimes()
+{
+    Trinity::Containers::EraseIf(_instanceResetTimes, [now = GameTime::GetSystemTime()](std::pair<uint32 const, SystemTimePoint> const& value)
+    {
+        return value.second < now;
+    });
+}
+
 void WorldSession::ReadMovementInfo(WorldPacket &data, MovementInfo* mi)
 {
     data >> mi->flags;
@@ -1097,6 +1148,8 @@ void WorldSession::ReadAddonsInfo(ByteBuffer &data)
     ByteBuffer addonInfo;
     addonInfo.resize(size);
 
+    _addons.SecureAddons.clear();
+
     if (uncompress(addonInfo.contents(), &uSize, data.contents() + pos, data.size() - pos) == Z_OK)
     {
         try
@@ -1145,9 +1198,8 @@ void WorldSession::ReadAddonsInfo(ByteBuffer &data)
 
             addonInfo.rpos(addonInfo.size() - 4);
 
-            uint32 lastBannedAddOnTimestamp;
-            addonInfo >> lastBannedAddOnTimestamp;
-            TC_LOG_DEBUG("addon", "AddOn: Newest banned addon timestamp: {}", lastBannedAddOnTimestamp);
+            addonInfo >> _addons.LastBannedAddOnTimestamp;
+            TC_LOG_DEBUG("addon", "AddOn: Newest banned addon timestamp: {}", _addons.LastBannedAddOnTimestamp);
         }
         catch (ByteBufferException const& e)
         {
@@ -1216,10 +1268,7 @@ void WorldSession::SendAddonsInfo()
     std::size_t sizePos = data.wpos();
     uint32 bannedAddonCount = 0;
     data << uint32(0);
-    auto itr = std::lower_bound(bannedAddons->begin(), bannedAddons->end(), _addons.LastBannedAddOnTimestamp, [](BannedAddon const& bannedAddon, uint32 timestamp)
-    {
-        return bannedAddon.Timestamp < timestamp;
-    });
+    auto itr = std::ranges::lower_bound(*bannedAddons, lastBannedAddOnTimestamp, std::ranges::less(), &BannedAddon::Timestamp);
     for (; itr != bannedAddons->end(); ++itr)
     {
         data << uint32(itr->Id);
@@ -1304,6 +1353,7 @@ public:
     {
         GLOBAL_ACCOUNT_DATA = 0,
         TUTORIALS,
+        INSTANCE_TIMES,
 
         MAX_QUERIES
     };
@@ -1321,6 +1371,10 @@ public:
         stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_TUTORIALS);
         stmt->setUInt32(0, accountId);
         ok = SetPreparedQuery(TUTORIALS, stmt) && ok;
+
+        stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ACCOUNT_INSTANCELOCKTIMES);
+        stmt->setUInt32(0, accountId);
+        ok = SetPreparedQuery(INSTANCE_TIMES, stmt) && ok;
 
         return ok;
     }
@@ -1345,6 +1399,7 @@ void WorldSession::InitializeSessionCallback(CharacterDatabaseQueryHolder const&
 {
     LoadAccountData(realmHolder.GetPreparedResult(AccountInfoQueryHolderPerRealm::GLOBAL_ACCOUNT_DATA), GLOBAL_CACHE_MASK);
     LoadTutorialsData(realmHolder.GetPreparedResult(AccountInfoQueryHolderPerRealm::TUTORIALS));
+    LoadInstanceTimeRestrictions(realmHolder.GetPreparedResult(AccountInfoQueryHolderPerRealm::INSTANCE_TIMES));
 
     if (!m_inQueue)
         SendAuthResponse(AUTH_OK, true);
@@ -1704,6 +1759,20 @@ void WorldSession::SendTimeSync()
     // Schedule next sync in 10 sec (except for the 2 first packets, which are spaced by only 5s)
     _timeSyncTimer = _timeSyncNextCounter == 0 ? 5000 : 10000;
     _timeSyncNextCounter++;
+}
+
+// 这个时间是客户端在发生位置变化那一刻的时间戳(客户端计算出来的)，这里加上了 _timeSyncClockDelta，表示时间同步差(考虑一些网络丢包的影响)，目的
+// 主要还是为了辅助客户端执行外插值运算，且让时间戳可以更精准一些
+uint32 WorldSession::AdjustClientMovementTime(uint32 time) const
+{
+    int64 movementTime = int64(time) + _timeSyncClockDelta;
+    if (_timeSyncClockDelta == 0 || movementTime < 0 || movementTime > 0xFFFFFFFF)
+    {
+        TC_LOG_WARN("misc", "The computed movement time using clockDelta is erronous. Using fallback instead");
+        return GameTime::GetGameTimeMS();
+    }
+    else
+        return uint32(movementTime);
 }
 
 bool WorldSession::IsRightUnitBeingMoved(ObjectGuid guid)

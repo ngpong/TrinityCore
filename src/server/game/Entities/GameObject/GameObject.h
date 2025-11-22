@@ -224,9 +224,9 @@ class TC_GAME_API GameObject : public WorldObject, public GridObject<GameObject>
         Group* GetLootRecipientGroup() const;
         void SetLootRecipient(Unit* unit, Group* group = nullptr);
         bool IsLootAllowedFor(Player const* player) const;
-        bool HasLootRecipient() const { return !m_lootRecipient.IsEmpty() || m_lootRecipientGroup; }
+        bool HasLootRecipient() const { return !m_lootRecipient.IsEmpty() || !m_lootRecipientGroup.IsEmpty(); }
         uint32 m_groupLootTimer;                            // (msecs)timer used for group loot
-        ObjectGuid::LowType lootingGroupLowGUID;                         // used to find group which is looting
+        ObjectGuid lootingGroupLowGUID;                     // used to find group which is looting
 
         GameObject* GetLinkedTrap();
         void SetLinkedTrap(GameObject* linkedTrap) { m_linkedTrap = linkedTrap->GetGUID(); }
@@ -270,10 +270,15 @@ class TC_GAME_API GameObject : public WorldObject, public GridObject<GameObject>
         void SetRespawnCompatibilityMode(bool mode = true) { m_respawnCompatibilityMode = mode; }
         bool GetRespawnCompatibilityMode() {return m_respawnCompatibilityMode; }
 
+        std::string const& GetAIName() const;
         uint32 GetScriptId() const;
         GameObjectAI* AI() const { return m_AI; }
 
-        std::string const& GetAIName() const;
+        void InheritStringIds(GameObject const* parent);
+        bool HasStringId(std::string_view id) const;
+        void SetScriptStringId(std::string id);
+        std::string_view GetStringId(StringIdType type) const { return m_stringIds[size_t(type)] ? std::string_view(*m_stringIds[size_t(type)]) : std::string_view(); }
+
         void SetDisplayId(uint32 displayid);
         uint32 GetDisplayId() const { return GetUInt32Value(GAMEOBJECT_DISPLAYID); }
 
@@ -283,13 +288,13 @@ class TC_GAME_API GameObject : public WorldObject, public GridObject<GameObject>
         GameObjectModel* m_model;
         void GetRespawnPosition(float &x, float &y, float &z, float* ori = nullptr) const;
 
-        Transport* ToTransport() { if (GetGOInfo()->type == GAMEOBJECT_TYPE_MO_TRANSPORT) return reinterpret_cast<Transport*>(this); else return nullptr; }
-        Transport const* ToTransport() const { if (GetGOInfo()->type == GAMEOBJECT_TYPE_MO_TRANSPORT) return reinterpret_cast<Transport const*>(this); else return nullptr; }
+        Transport* ToTransport() { if (GetGOInfo()->type == GAMEOBJECT_TYPE_MAP_OBJ_TRANSPORT) return reinterpret_cast<Transport*>(this); else return nullptr; }
+        Transport const* ToTransport() const { if (GetGOInfo()->type == GAMEOBJECT_TYPE_MAP_OBJ_TRANSPORT) return reinterpret_cast<Transport const*>(this); else return nullptr; }
 
-        float GetStationaryX() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MO_TRANSPORT) return m_stationaryPosition.GetPositionX(); return GetPositionX(); }
-        float GetStationaryY() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MO_TRANSPORT) return m_stationaryPosition.GetPositionY(); return GetPositionY(); }
-        float GetStationaryZ() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MO_TRANSPORT) return m_stationaryPosition.GetPositionZ(); return GetPositionZ(); }
-        float GetStationaryO() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MO_TRANSPORT) return m_stationaryPosition.GetOrientation(); return GetOrientation(); }
+        float GetStationaryX() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MAP_OBJ_TRANSPORT) return m_stationaryPosition.GetPositionX(); return GetPositionX(); }
+        float GetStationaryY() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MAP_OBJ_TRANSPORT) return m_stationaryPosition.GetPositionY(); return GetPositionY(); }
+        float GetStationaryZ() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MAP_OBJ_TRANSPORT) return m_stationaryPosition.GetPositionZ(); return GetPositionZ(); }
+        float GetStationaryO() const override { if (GetGOInfo()->type != GAMEOBJECT_TYPE_MAP_OBJ_TRANSPORT) return m_stationaryPosition.GetOrientation(); return GetOrientation(); }
         void RelocateStationaryPosition(float x, float y, float z, float o) { m_stationaryPosition.Relocate(x, y, z, o); }
 
         float GetInteractionDistance() const;
@@ -339,13 +344,15 @@ class TC_GAME_API GameObject : public WorldObject, public GridObject<GameObject>
         GameObjectTemplateAddon const* m_goTemplateAddon;
         GameObjectData const* m_goData;
         GameObjectValue m_goValue;
+        std::array<std::string const*, 3> m_stringIds;
+        Optional<std::string> m_scriptStringId;
 
         int64 m_packedRotation;
         QuaternionData m_localRotation;
         Position m_stationaryPosition;
 
         ObjectGuid m_lootRecipient;
-        uint32 m_lootRecipientGroup;
+        ObjectGuid m_lootRecipientGroup;
         uint16 m_LootMode;                                  // bitmask, default LOOT_MODE_DEFAULT, determines what loot will be lootable
         uint32 m_lootGenerationTime;
 

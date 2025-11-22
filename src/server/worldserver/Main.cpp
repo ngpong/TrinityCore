@@ -70,11 +70,16 @@ namespace fs = boost::filesystem;
     #define _TRINITY_CORE_CONFIG  "worldserver.conf"
 #endif
 
-#ifdef _WIN32
+#ifndef _TRINITY_CORE_CONFIG_DIR
+    #define _TRINITY_CORE_CONFIG_DIR "worldserver.conf.d"
+#endif
+
+#if TRINITY_PLATFORM == TRINITY_PLATFORM_WINDOWS
 #include "ServiceWin32.h"
-char serviceName[] = "worldserver";
-char serviceLongName[] = "TrinityCore world service";
-char serviceDescription[] = "TrinityCore World of Warcraft emulator world service";
+#include <tchar.h>
+TCHAR serviceName[] = _T("worldserver");
+TCHAR serviceLongName[] = _T("TrinityCore world service");
+TCHAR serviceDescription[] = _T("TrinityCore World of Warcraft emulator world service");
 /*
  * -1 - not in service mode
  *  0 - stopped
@@ -89,26 +94,26 @@ int m_ServiceStatus = -1;
 
 class FreezeDetector
 {
-    public:
+public:
     FreezeDetector(Trinity::Asio::IoContext& ioContext, uint32 maxCoreStuckTime)
         : _timer(ioContext), _worldLoopCounter(0), _lastChangeMsTime(getMSTime()), _maxCoreStuckTimeInMs(maxCoreStuckTime) { }
 
-        static void Start(std::shared_ptr<FreezeDetector> const& freezeDetector)
+    static void Start(std::shared_ptr<FreezeDetector> const& freezeDetector)
+    {
+        freezeDetector->_timer.expires_after(5s);
+        freezeDetector->_timer.async_wait([freezeDetectorRef = std::weak_ptr(freezeDetector)](boost::system::error_code const& error) mutable
         {
-            freezeDetector->_timer.expires_from_now(boost::posix_time::seconds(5));
-            freezeDetector->_timer.async_wait([freezeDetectorRef = std::weak_ptr<FreezeDetector>(freezeDetector)](boost::system::error_code const& error)
-            {
-                return Handler(freezeDetectorRef, error);
-            });
-        }
+            Handler(std::move(freezeDetectorRef), error);
+        });
+    }
 
-        static void Handler(std::weak_ptr<FreezeDetector> freezeDetectorRef, boost::system::error_code const& error);
+    static void Handler(std::weak_ptr<FreezeDetector> freezeDetectorRef, boost::system::error_code const& error);
 
-    private:
-        Trinity::Asio::DeadlineTimer _timer;
-        uint32 _worldLoopCounter;
-        uint32 _lastChangeMsTime;
-        uint32 _maxCoreStuckTimeInMs;
+private:
+    Trinity::Asio::DeadlineTimer _timer;
+    uint32 _worldLoopCounter;
+    uint32 _lastChangeMsTime;
+    uint32 _maxCoreStuckTimeInMs;
 };
 
 void SignalHandler(boost::system::error_code const& error, int signalNumber);
@@ -119,10 +124,10 @@ void WorldUpdateLoop();
 void ClearOnlineAccounts();
 void ShutdownCLIThread(std::thread* cliThread);
 bool LoadRealmInfo(Trinity::Asio::IoContext& ioContext);
-variables_map GetConsoleArguments(int argc, char** argv, fs::path& configFile, std::string& configService);
+variables_map GetConsoleArguments(int argc, char** argv, fs::path& configFile, fs::path& configDir, std::string& winServiceAction);
 
 /// Launch the Trinity server
-extern int main(int argc, char** argv)
+int main(int argc, char** argv)
 {
     Trinity::Impl::CurrentServerProcessHolder::_type = SERVER_PROCESS_WORLDSERVER;
     signal(SIGABRT, &Trinity::AbortHandler);
@@ -136,21 +141,24 @@ extern int main(int argc, char** argv)
     // 创建配置文件对象
     auto configFile = fs::absolute(_TRINITY_CORE_CONFIG);
 
+    auto configDir  = fs::absolute(_TRINITY_CORE_CONFIG_DIR);
+    std::string winServiceAction;
     // 处理命令行参数
-    std::string configService;
-    auto vm = GetConsoleArguments(argc, argv, configFile, configService);
+    auto vm = GetConsoleArguments(argc, argv, configFile, configDir, winServiceAction);
+
     // exit if help or version is enabled
     if (vm.count("help") || vm.count("version"))
         return 0;
 
     // 处理 windows 服务进程的一些逻辑
 #ifdef _WIN32
-    if (configService == "install")
-        return WinServiceInstall() ? 0 : 1;
-    else if (configService == "uninstall")
-        return WinServiceUninstall() ? 0 : 1;
-    else if (configService == "run")
-        return WinServiceRun() ? 0 : 1;
+    Trinity::Service::Init(serviceLongName, serviceName, serviceDescription, &main, &m_ServiceStatus);
+    if (winServiceAction == "install")
+        return Trinity::Service::Install();
+    if (winServiceAction == "uninstall")
+        return Trinity::Service::Uninstall();
+    if (winServiceAction == "run")
+        return Trinity::Service::Run();
 
     Optional<UINT> newTimerResolution;
     boost::system::error_code dllError;
@@ -200,6 +208,20 @@ extern int main(int argc, char** argv)
         return 1;
     }
 
+    std::vector<std::string> loadedConfigFiles;
+    std::vector<std::string> configDirErrors;
+    bool additionalConfigFileLoadSuccess = sConfigMgr->LoadAdditionalDir(configDir.generic_string(), true, loadedConfigFiles, configDirErrors);
+    for (std::string const& loadedConfigFile : loadedConfigFiles)
+        printf("Loaded additional config file %s\n", loadedConfigFile.c_str());
+
+    if (!additionalConfigFileLoadSuccess)
+    {
+        for (std::string const& configDirError : configDirErrors)
+            printf("Error in additional config files: %s\n", configDirError.c_str());
+
+        return 1;
+    }
+    
     // 配置可以被环境变量覆盖，具体参考 IniKeyToEnvVarKey 函数
     std::vector<std::string> overriddenKeys = sConfigMgr->OverrideWithEnvVariablesIfAny();
 
@@ -597,10 +619,10 @@ void FreezeDetector::Handler(std::weak_ptr<FreezeDetector> freezeDetectorRef, bo
                 }
             }
 
-            freezeDetector->_timer.expires_from_now(boost::posix_time::seconds(1));
-            freezeDetector->_timer.async_wait([freezeDetectorRef](boost::system::error_code const& timerError)
+            freezeDetector->_timer.expires_after(1s);
+            freezeDetector->_timer.async_wait([freezeDetectorRef = std::move(freezeDetectorRef)](boost::system::error_code const& error) mutable
             {
-                return Handler(freezeDetectorRef, timerError);
+                Handler(std::move(freezeDetectorRef), error);
             });
         }
     }
@@ -735,23 +757,22 @@ void ClearOnlineAccounts()
 
 /// @}
 
-variables_map GetConsoleArguments(int argc, char** argv, fs::path& configFile, std::string& configService)
+variables_map GetConsoleArguments(int argc, char** argv, fs::path& configFile, fs::path& configDir, [[maybe_unused]] std::string& winServiceAction)
 {
-    // Silences warning about configService not be used if the OS is not Windows
-    (void)configService;
-
     options_description all("Allowed options");
     all.add_options()
         ("help,h", "print usage message")
         ("version,v", "print version build info")
         ("config,c", value<fs::path>(&configFile)->default_value(fs::absolute(_TRINITY_CORE_CONFIG)),
                      "use <arg> as configuration file")
+        ("config-dir,cd", value<fs::path>(&configDir)->default_value(fs::absolute(_TRINITY_CORE_CONFIG_DIR)),
+                     "use <arg> as directory with additional config files")
         ("update-databases-only,u", "updates databases only")
         ;
 #ifdef _WIN32
     options_description win("Windows platform specific options");
     win.add_options()
-        ("service,s", value<std::string>(&configService)->default_value(""), "Windows service options: [install | uninstall]")
+        ("service,s", value<std::string>(&winServiceAction)->default_value(""), "Windows service options: [install | uninstall]")
         ;
 
     all.add(win);
@@ -776,3 +797,9 @@ variables_map GetConsoleArguments(int argc, char** argv, fs::path& configFile, s
 
     return vm;
 }
+
+#if TRINITY_PLATFORM == TRINITY_PLATFORM_WINDOWS
+#include "WheatyExceptionReport.h"
+// must be at end of file because of init_seg pragma
+INIT_CRASH_HANDLER();
+#endif

@@ -40,6 +40,7 @@ option(TOOLS            "Build map/vmap/mmap extraction/assembler tools"        
 option(USE_SCRIPTPCH    "Use precompiled headers when compiling scripts"              1)
 option(USE_COREPCH      "Use precompiled headers when compiling servers"              1)
 option(WITH_DYNAMIC_LINKING "Enable dynamic library linking."                         0)
+option(WITH_FILESYSTEM_WATCHER "Include filesystem watcher library"                   0)
 
 # 该段逻辑检测上面设置的 SCRIPTS_<script_name>，只要存在一个需要 dymanic 则设置返回 True，抑或是 SCRIPTS 为 dynamic 也返回 True
 IsDynamicLinkingRequired(WITH_DYNAMIC_LINKING_FORCED)
@@ -53,8 +54,12 @@ if(WITH_DYNAMIC_LINKING OR WITH_DYNAMIC_LINKING_FORCED)
 else()
   set(BUILD_SHARED_LIBS OFF)
 endif()
+if(WITH_FILESYSTEM_WATCHER OR BUILD_SHARED_LIBS)
+  set(BUILD_EFSW ON)
+endif()
 
 option(WITH_WARNINGS    "Show all warnings during compile"                            0)
+option(WITH_WARNINGS_AS_ERRORS "Treat warnings as errors"                             0)
 option(WITH_COREDEBUG   "Include additional debug-code in core"                       0)
 option(WITHOUT_METRICS  "Disable metrics reporting (i.e. InfluxDB and Grafana)"       0)
 option(WITH_DETAILED_METRICS  "Enable detailed metrics reporting (i.e. time each session takes to update)" 0)
@@ -62,8 +67,8 @@ option(COPY_CONF        "Copy authserver and worldserver .conf.dist files to the
 set(WITH_SOURCE_TREE    "hierarchical" CACHE STRING "Build the source tree for IDE's.")
 set_property(CACHE WITH_SOURCE_TREE PROPERTY STRINGS no flat hierarchical hierarchical-folders)
 option(WITHOUT_GIT      "Disable the GIT testing routines"                            0)
-option(BUILD_TESTING    "Build test suite" 0)
+option(BUILD_TESTING    "Build test suite"                                            0)
 
 if(UNIX)
-  option(USE_LD_GOLD    "Use GNU gold linker"                                        0)
+  option(USE_LD_GOLD    "Use GNU gold linker"                                         0)
 endif()
