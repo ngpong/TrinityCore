@@ -67,6 +67,7 @@ GM命令：
   * 设置GM账号：account set gmlevel <account> <gmlevel:3> <realmid:1>
   *
 
+https://www.getmangos.eu/forums/topic/10829-what-are-maps-mmaps-and-vmaps-exactly/
 
 配置文件:
   * 配置文件被我修改过的字段添加 NGPONG 的注释信息
