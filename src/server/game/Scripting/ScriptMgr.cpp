@@ -1196,7 +1196,9 @@ void ScriptMgr::LoadDatabase()
     // │         │
     // D─────────C
     //
-    sScriptSystemMgr->LoadScriptWaypoints();
+    // 下面的代码在新的提交中已经移除，保留这部分注释的原因是为了区分 waypoint 与 splinechain 用于控制 AI 移动时是存在区别的；
+    // 
+    // sScriptSystemMgr->LoadScriptWaypoints();
 
     // 从 wolrd.script_spline_chain_meta world.script_spline_chain_waypoints 读取定义初始化 m_mSplineChainsMap
     //
@@ -1394,14 +1396,14 @@ void ScriptMgr::OnNetworkStop()
     FOREACH_SCRIPT(ServerScript)->OnNetworkStop();
 }
 
-void ScriptMgr::OnSocketOpen(std::shared_ptr<WorldSocket> socket)
+void ScriptMgr::OnSocketOpen(std::shared_ptr<WorldSocket> const& socket)
 {
     ASSERT(socket);
 
     FOREACH_SCRIPT(ServerScript)->OnSocketOpen(socket);
 }
 
-void ScriptMgr::OnSocketClose(std::shared_ptr<WorldSocket> socket)
+void ScriptMgr::OnSocketClose(std::shared_ptr<WorldSocket> const& socket)
 {
     ASSERT(socket);
 
