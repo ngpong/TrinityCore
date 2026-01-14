@@ -1136,6 +1136,33 @@ class GenericCreatureScript : public CreatureScript
         GenericCreatureScript(char const* name) : CreatureScript(name) { }
         CreatureAI* GetAI(Creature* me) const override { return new AI(me); }
 };
+
+// CreatureScript
+//
+// SpellScriptLoader
+//
+// GameObjectScript
+//
+// InstanceMapScript
+//
+// AreaTriggerScript
+//
+// ItemScript
+//
+// PlayerScript
+
+// CONSTRUCTOR ScriptObject:
+// • ScriptMgr::instance()::_scriptCount++
+//
+// CONSTRUCTOR CreatureScript:
+// • CONSTRUCTOR ScriptRegistry<CreatureScript>:
+//   • ScriptRegistryCompositum::Instance()::_registries.insert(this)
+// • CALL ScriptRegistry<CreatureScript>::Instance()->AddScript(this)
+//   _scripts.insert({ script_id -> script_name, &CreatureScript }) 
+//   _ids_of_contexts.insert(std::make_pair(sScriptMgr->GetCurrentScriptContext(), id)); // { cur_cxt/mod_name, script_id -> script_name }
+//   _recently_added_ids.insert(id); // script_id
+//   sScriptRegistryCompositum->SetScriptNameInContext(script->GetName(), sScriptMgr->GetCurrentScriptContext());
+//  
 #define RegisterCreatureAI(ai_name) new GenericCreatureScript<ai_name>(#ai_name)
 
 template <class AI, AI* (*AIFactory)(Creature*)>

@@ -212,7 +212,7 @@ void WorldSession::SendPacket(WorldPacket const* packet)
         packet->GetOpcode() != SMSG_AURA_UPDATE_ALL and
         packet->GetOpcode() != SMSG_DESTROY_OBJECT)
     {
-        TC_LOG_INFO("ngpong", "[{}] send [{}]", this->_accountName, magic_enum::enum_name(static_cast<Opcodes>(packet->GetOpcode())));
+        TC_LOG_INFO("neil", "[{}] send msg [{}]", this->_accountName, magic_enum::enum_name(static_cast<Opcodes>(packet->GetOpcode())));
     }
 
 #ifdef TRINITY_DEBUG
@@ -304,7 +304,7 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
         OpcodeClient opcode = static_cast<OpcodeClient>(packet->GetOpcode());
 
         // TEST: 此处可以用于debug接受客户端发送过来的消息内容
-        TC_LOG_INFO("ngpong", "[{}] reveive msg [{}]", this->_accountName, magic_enum::enum_name(static_cast<Opcodes>(packet->GetOpcode())));
+        TC_LOG_INFO("neil", "[{}] recv msg [{}]", this->_accountName, magic_enum::enum_name(static_cast<Opcodes>(packet->GetOpcode())));
 
         ClientOpcodeHandler const* opHandle = opcodeTable[opcode];
         TC_METRIC_DETAILED_TIMER("worldsession_update_opcode_time", TC_METRIC_TAG("opcode", opHandle->Name));

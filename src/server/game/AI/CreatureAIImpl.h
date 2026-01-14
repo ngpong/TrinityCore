@@ -32,19 +32,19 @@ inline First const& RAND(First const& first, Second const& second, Rest const&..
 
 enum AITarget
 {
-    AITARGET_SELF,
-    AITARGET_VICTIM,
-    AITARGET_ENEMY,
-    AITARGET_ALLY,
-    AITARGET_BUFF,
-    AITARGET_DEBUFF
+    AITARGET_SELF,    // 目标 = 自己（施放自保技能、给自己上 Buff、解控、自疗等）
+    AITARGET_VICTIM,  // 目标 = 当前仇恨目标/攻击目标（通常是 AI 正在打的那个人；用于单体输出/控制）
+    AITARGET_ENEMY,   // 目标 = 敌对单位（不一定是当前 victim；可表示“从敌方集合中选一个”用于换目标/找最近/找最低血等）
+    AITARGET_ALLY,    // 目标 = 友方单位（从同阵营/同队伍/同召唤阵营中选择；用于治疗/驱散/救援）
+    AITARGET_BUFF,    // 目标 = 需要上 Buff 的单位（通常是：友方集合里“缺少某个 Buff/光环”的那个；偏“按状态选目标”）
+    AITARGET_DEBUFF   // 目标 = 需要挂 Debuff 的单位（通常是：敌方集合里“没有某个 Debuff/可叠层/可刷新”的那个；偏“按状态选目标”）
 };
 
 enum AICondition
 {
-    AICOND_AGGRO,
-    AICOND_COMBAT,
-    AICOND_DIE
+    AICOND_AGGRO,     // 条件 = 仇恨建立/进入警戒（首次拉到仇恨、开始对玩家产生敌对行为的瞬间；常用于开怪喊话/开场技能）
+    AICOND_COMBAT,    // 条件 = 战斗中（已进入战斗状态的阶段性条件；常用于循环施法/按冷却与血量阈值执行）
+    AICOND_DIE        // 条件 = 死亡（单位死亡事件触发；常用于死亡台词、召唤增援、掉落触发、事件推进）
 };
 
 #define AI_DEFAULT_COOLDOWN 5000

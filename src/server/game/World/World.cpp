@@ -1707,7 +1707,7 @@ void World::SetInitialWorldSettings()
     ///- Initialize static helper structures
     AIRegistry::Initialize();
 
-    // 从 reocrd 中加载法术信息至 SpellMgr::mSpellInfoMap 当中
+    // 从 dbc::sSpellStore 中加载法术信息至 SpellMgr::mSpellInfoMap 当中
     TC_LOG_INFO("server.loading", "Loading SpellInfo store...");
     sSpellMgr->LoadSpellInfoStore();
 
@@ -1741,8 +1741,8 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading GameObject models...");
     LoadGameObjectModelList(m_dataPath);
 
-    // 从 db 中加载 scripts 名字并存储在 _scriptNamesStore
-    // script_name 一般情况下都是指的一些 script 中的类名，除非其构造函数中有特殊说明
+    // 依据 DB 的符合查询的结果，加载所有可注册的脚本名，并存储在 _scriptNamesStore；
+    // 可注册脚本名，即 src/server/scripts/<mod>/<mod>_script_loader.cpp 文件下需要注册的一系列脚本类名；
     TC_LOG_INFO("server.loading", "Loading Script Names...");
     sObjectMgr->LoadScriptNames();
 
@@ -1883,7 +1883,14 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading Creature Model Based Info Data...");
     sObjectMgr->LoadCreatureModelInfo();
 
-    // 从 db 查询以初始化一些缓存变量，由于比较重复就不解释具体字段和查询了
+    // 从
+    //  world.creature_template,
+    //  world.creature_template_movement
+    //  world.creature_template_resistance
+    //  world.creature_template_spell
+    // 数据库表中初始化 _creatureTemplateStore
+    //
+    // _creatureTemplateStore 记录的是所有生物的创造模板信息，包括了生物的基本信息（等级、经验等）、移动信息和法术信息等
     TC_LOG_INFO("server.loading", "Loading Creature templates...");
     sObjectMgr->LoadCreatureTemplates();
 

@@ -26,10 +26,10 @@ struct TC_GAME_API SplineChainLink
     SplineChainLink(Movement::PointsArray const& points, uint32 expectedDuration, uint32 msToNext, float velocity) : Points(points), ExpectedDuration(expectedDuration), TimeToNext(msToNext), Velocity(velocity) { }
     template <typename iteratorType> SplineChainLink(iteratorType begin, iteratorType end, uint32 expectedDuration, uint32 msToNext, float velocity) : Points(begin, end), ExpectedDuration(expectedDuration), TimeToNext(msToNext), Velocity(velocity) { }
     SplineChainLink(uint32 expectedDuration, uint32 msToNext, float velocity) : Points(), ExpectedDuration(expectedDuration), TimeToNext(msToNext), Velocity(velocity) { }
-    Movement::PointsArray Points;
-    uint32 ExpectedDuration;
-    uint32 TimeToNext;
-    float Velocity;
+    Movement::PointsArray Points; // 路径点；x y z
+    uint32 ExpectedDuration;      // 执行该 spline 预计耗时
+    uint32 TimeToNext;            // 到下一个 spline 的延迟
+    float Velocity;               // 速度
 };
 
 struct TC_GAME_API SplineChainResumeInfo

@@ -337,7 +337,13 @@ private:
 
 void AddSC_deathknight_pet_scripts()
 {
+    // 对应死亡骑士的三种召唤物/宠物
+    
+    // 黑锋石像鬼（Summon Gargoyle）
     RegisterCreatureAI(npc_pet_dk_ebon_gargoyle);
+    // 临时守护者型召唤物（Guardian Pets）
     RegisterCreatureAI(npc_pet_dk_guardian);
+    // 符文武器（Dancing Rune Weapon）；
+    // 复制死亡骑士本体行为，像是分身一样的东西；
     RegisterCreatureAI(npc_pet_dk_rune_weapon);
 }

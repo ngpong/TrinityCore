@@ -199,14 +199,13 @@ void UnitAI::FillAISpellInfo()
     AISpellInfoType* AIInfo = AISpellInfo;
     for (uint32 i = 0; i < sSpellMgr->GetSpellInfoStoreSize(); ++i, ++AIInfo)
     {
-        // SpellInfos 通过 record 初始化的
         SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(i);
         if (!spellInfo)
             continue;
 
-        if (spellInfo->HasAttribute(SPELL_ATTR0_CASTABLE_WHILE_DEAD))
+        if (spellInfo->HasAttribute(SPELL_ATTR0_CASTABLE_WHILE_DEAD)) // 是否允许施法者死亡施放
             AIInfo->condition = AICOND_DIE;
-        else if (spellInfo->IsPassive() || spellInfo->GetDuration() == -1)
+        else if (spellInfo->IsPassive() || spellInfo->GetDuration() == -1) // 是否是被动法术（无需玩家自己施放的光环/被动）
             AIInfo->condition = AICOND_AGGRO;
         else
             AIInfo->condition = AICOND_COMBAT;
@@ -226,11 +225,16 @@ void UnitAI::FillAISpellInfo()
                 else if (targetType == TARGET_UNIT_DEST_AREA_ENEMY)
                     UPDATE_TARGET(AITARGET_ENEMY)
 
+                // 法术效果是施加光环的
                 if (effect.Effect == SPELL_EFFECT_APPLY_AURA)
                 {
+                    // 并且作用目标是敌方目标
                     if (targetType == TARGET_UNIT_TARGET_ENEMY)
+                        // 则认为该法术需要作用于挂 Debuff 的单位
                         UPDATE_TARGET(AITARGET_DEBUFF)
+                    // 并且作用目标是友方目标
                     else if (spellInfo->IsPositive())
+                        // 则认为该法术需要作用于挂 buff 的单位
                         UPDATE_TARGET(AITARGET_BUFF)
                 }
             }

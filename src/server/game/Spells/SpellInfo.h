@@ -286,82 +286,242 @@ class TC_GAME_API SpellInfo
     friend class SpellMgr;
 
     public:
-        uint32 Id;
-        SpellCategoryEntry const* CategoryEntry;
-        uint32 Dispel;
-        uint32 Mechanic;
-        uint32 Attributes;
-        uint32 AttributesEx;
-        uint32 AttributesEx2;
-        uint32 AttributesEx3;
-        uint32 AttributesEx4;
-        uint32 AttributesEx5;
-        uint32 AttributesEx6;
-        uint32 AttributesEx7;
-        uint32 AttributesCu;
-        uint64 Stances;
-        uint64 StancesNot;
-        uint32 Targets;
-        uint32 TargetCreatureType;
-        uint32 RequiresSpellFocus;
-        uint32 FacingCasterFlags;
-        uint32 CasterAuraState;
-        uint32 TargetAuraState;
-        uint32 CasterAuraStateNot;
-        uint32 TargetAuraStateNot;
-        uint32 CasterAuraSpell;
-        uint32 TargetAuraSpell;
-        uint32 ExcludeCasterAuraSpell;
-        uint32 ExcludeTargetAuraSpell;
-        SpellCastTimesEntry const* CastTimeEntry;
-        uint32 RecoveryTime;
-        uint32 CategoryRecoveryTime;
-        uint32 StartRecoveryCategory;
-        uint32 StartRecoveryTime;
-        uint32 InterruptFlags;
-        uint32 AuraInterruptFlags;
-        uint32 ChannelInterruptFlags;
-        uint32 ProcFlags;
-        uint32 ProcChance;
-        uint32 ProcCharges;
-        uint32 MaxLevel;
-        uint32 BaseLevel;
-        uint32 SpellLevel;
-        SpellDurationEntry const* DurationEntry;
-        Powers PowerType;
-        uint32 ManaCost;
-        uint32 ManaCostPerlevel;
-        uint32 ManaPerSecond;
-        uint32 ManaPerSecondPerLevel;
-        uint32 ManaCostPercentage;
-        uint32 RuneCostID;
-        SpellRangeEntry const* RangeEntry;
-        float  Speed;
-        uint32 StackAmount;
-        std::array<uint32, 2> Totem;
-        std::array<int32, MAX_SPELL_REAGENTS>  Reagent;
-        std::array<uint32, MAX_SPELL_REAGENTS> ReagentCount;
-        int32  EquippedItemClass;
-        int32  EquippedItemSubClassMask;
-        int32  EquippedItemInventoryTypeMask;
-        std::array<uint32, 2> TotemCategory;
-        std::array<uint32, 2> SpellVisual;
-        uint32 SpellIconID;
-        uint32 ActiveIconID;
-        uint32 Priority;
-        std::array<char const*, 16> SpellName;
-        std::array<char const*, 16> Rank;
-        uint32 MaxTargetLevel;
-        uint32 MaxAffectedTargets;
-        uint32 SpellFamilyName;
-        flag96 SpellFamilyFlags;
-        uint32 DmgClass;
-        uint32 PreventionType;
-        int32  AreaGroupId;
-        uint32 SchoolMask;
-        std::array<SpellEffectInfo, MAX_SPELL_EFFECTS> _effects;
-        uint32 ExplicitTargetMask;
-        SpellChainNode const* ChainEntry;
+        uint32 Id;                                               // 法术 ID（Spell.dbc / SpellEntry 的主键）
+
+        SpellCategoryEntry const* CategoryEntry;                 // 法术分类信息（冷却共享、类别冷却等）
+
+        uint32 Dispel;                                           // 驱散类型（DispelType）（Magic / Curse / Poison / Disease 等）
+
+        uint32 Mechanic;                                         // 法术机制类型（Mechanics）（眩晕、恐惧、定身等）
+
+        uint32 Attributes;                                       // SpellAttr0：法术“基础语义位”。决定最顶层的施放规则与标签化行为：
+                                                                 // - 施放者状态约束：可否死亡/坐骑/坐下施放（CASTABLE_WHILE_DEAD/MOUNTED/SITTING）
+                                                                 // - 环境约束：室内/室外（INDOORS_ONLY/OUTDOORS_ONLY）
+                                                                 // - 形态/潜行约束：变形/潜行限制（NOT_SHAPESHIFT/ONLY_STEALTHED）
+                                                                 // - 战斗与可用性：是否禁止战斗中使用（CANT_USED_IN_COMBAT）
+                                                                 // - 冷却语义：效果存在期间不可再次使用，且冷却在效果结束后才开始（DISABLED_WHILE_ACTIVE）
+                                                                 // - 目标/命中模型：是否不可闪避/招架/格挡（IMPOSSIBLE_DODGE_PARRY_BLOCK）
+                                                                 // - 伤害缩放：对非玩家施放时按施法者等级缩放效果与消耗（LEVEL_DAMAGE_CALCULATION）
+                                                                 // - 负面/正面强制：强制视为负面法术（NEGATIVE_1），影响光环/驱散/敌对判定
+                                                                 // - 免疫穿透：可穿透“无敌类”效果（UNAFFECTED_BY_INVULNERABILITY）【注意对向也需要该位才互穿】
+                                                                 // - 心跳抗性复检：周期性重判抗性以提前终止光环（HEARTBEAT_RESIST_CHECK）
+                                                                 // - 光环不可取消：玩家不能手动取消（CANT_CANCEL）
+                                                                 // 另外：REQ_AMMO/ABILITY/TRADESPELL/PASSIVE 等位决定“它被当作普攻/技能/配方/被动”的大类处理路径。
+        
+        uint32 AttributesEx;                                     // SpellAttr1：施法/引导/威胁/重定向相关的“战斗语义扩展”：
+                                                                 // - 引导语义：标记为引导（CHANNELED_1/CHANNELED_2），决定引导条/打断/每跳逻辑
+                                                                 // - 反射/重定向：是否忽略反射（CANT_BE_REFLECTED）或忽略磁吸/吸收类重定向（CANT_BE_REDIRECTED）
+                                                                 // - 潜行保持：施放不破潜行（NOT_BREAK_STEALTH）
+                                                                 // - 目标约束：目标必须不在战斗（CANT_TARGET_IN_COMBAT）、不能自施（CANT_TARGET_SELF）
+                                                                 // - 仇恨语义：不产生仇恨且不拉怪（NO_THREAT）
+                                                                 // - 光环重施：重施不刷新持续时间（DONT_REFRESH_DURATION_ON_RECAST）
+                                                                 // - 宠物相关：施放会解散宠物（DISMISS_PET）、宠物不能自动施放（UNAUTOCASTABLE_BY_PET）
+                                                                 // - 连击点：需要连击点（REQ_COMBO_POINTS1/2）
+                                                                 // - 免疫施加副作用：免疫类法术在施加时会清掉其免疫掉的既有光环（DISPEL_AURAS_ON_IMMUNITY）
+                                                                 // - 免疫交互：标记为“不会穿透学派免疫/无敌类”（UNAFFECTED_BY_SCHOOL_IMMUNE）用于细分免疫体系
+                                                                 // 备注：MELEE_COMBAT_START 为客户端语义（自动开平砍），服务器通常仍会参考以保持一致体验。
+        
+        uint32 AttributesEx2;                                    // SpellAttr2：目标选择/可见性/自动攻击计时器/特殊系统（驯服、食物、竞技场）：
+                                                                 // - 目标合法性：允许目标为尸体/死人（CAN_TARGET_DEAD），允许无视视线（CAN_TARGET_NOT_IN_LOS）
+                                                                 // - 归属限制：不能对“别人已标记(tap)”的怪施放（CANT_TARGET_TAPPED）
+                                                                 // - 远程自动攻击：标记为远程自动射击（AUTOREPEAT_FLAG）
+                                                                 // - 计时器语义：施放不重置普攻摆动计时（NOT_RESET_AUTO_ACTIONS）
+                                                                 // - 形态例外：即使有 Stances 限制，也允许“非变形状态”施放（NOT_NEED_SHAPESHIFT）
+                                                                 // - 全免疫失败语义：若目标全免疫则施放失败（FAIL_ON_ALL_TARGETS_IMMUNE）并影响战场旗帜等逻辑
+                                                                 // - 光环施加免疫穿透：允许在“禁止新光环”类免疫下仍能上光环（UNAFFECTED_BY_AURA_SCHOOL_IMMUNE）
+                                                                 // - 暴击语义：禁止暴击（CANT_CRIT）
+                                                                 // - 威胁语义：Active Threat（用于某些主动仇恨/拉怪规则）
+                                                                 // - 特殊标记：TAME_BEAST / HEALTH_FUNNEL / FOOD_BUFF 等会进入特化逻辑分支。
+        
+        uint32 AttributesEx3;                                    // SpellAttr3：Proc 链路、命中结果、叠加模型、武器需求与“死亡持久”等：
+                                                                 // - Proc 传播：触发法术是否能再触发别的 Proc（NOT_A_PROC / CANT_TRIGGER_PROC / CAN_PROC_FROM_PROCS）
+                                                                 // - 命中结果：忽略命中结果（IGNORE_HIT_RESULT）=> 不能 miss/dodge/parry/block（比 Attr0 的“仅物理避免”更广）
+                                                                 // - 叠加模型：不同施法者分别叠（STACK_FOR_DIFF_CASTERS）
+                                                                 // - 目标过滤：只能选玩家/幽灵（ONLY_TARGET_PLAYERS / ONLY_TARGET_GHOSTS）
+                                                                 // - 装备需求：主手/副手/魔杖要求（MAIN_HAND / REQ_OFFHAND / REQ_WAND）
+                                                                 // - 仇恨/开怪：无初始仇恨（NO_INITIAL_AGGRO）
+                                                                 // - 死亡持久：光环死亡不掉（DEATH_PERSISTENT）
+                                                                 // - 伤害修正隔离：造成伤害不吃增伤修正（NO_DONE_BONUS）
+                                                                 // - Treat as periodic：把效果当成周期性处理（TREAT_AS_PERIODIC）影响跳数/触发/驱散等路径。
+        
+        uint32 AttributesEx4;                                    // SpellAttr4：抗性/偷取/并行施法/竞技场/物品触发等“规则修饰层”：
+                                                                 // - 抗性体系：不可被抵抗（IGNORE_RESISTANCES）
+                                                                 // - 光环可偷取：禁止法术偷取/驱散偷取（NOT_STEALABLE）
+                                                                 // - 并行施法：允许在施法过程中施放（CAN_CAST_WHILE_CASTING）=> 打破“正在读条则拒绝”的顶层限制
+                                                                 // - 固定伤害：造成固定伤害（FIXED_DAMAGE）通常绕开部分系数计算
+                                                                 // - 进入竞技场处理：不移除/强制移除/可用性覆盖（DONT_REMOVE_IN_ARENA / REMOVE_ON_ARENA_ENTER 见 Attr5 / NOT_USABLE_IN_ARENA / USABLE_IN_ARENA）
+                                                                 // - 物品触发隔离：不能触发物品法术（CANT_TRIGGER_ITEM_SPELLS）
+                                                                 // - 宠物缩放：宠物属性缩放光环（IS_PET_SCALING）
+                                                                 // - 地域限制：只在外域/诺森德（CAST_ONLY_IN_OUTLAND）
+                                                                 // - 施法条强制显示：FORCE_DISPLAY_CASTBAR
+                                                                 // - Damage doesn't break auras：伤害不破隐身/控制等特定光环（DAMAGE_DOESNT_BREAK_AURAS）
+        
+        uint32 AttributesEx5;                                    // SpellAttr5：控制状态下可施放、周期 tick 行为、持续时间与 LOS 特例：
+                                                                 // - 移动引导：可移动引导（CAN_CHANNEL_WHEN_MOVING）
+                                                                 // - 控制态施法：可在眩晕/恐惧/混乱时施放（USABLE_WHILE_STUNNED/FEARED/CONFUSED）
+                                                                 // - 单目标光环语义：同一施法者对不同目标只能存在一个（SINGLE_TARGET_SPELL）=> “转移目标会移除旧的”
+                                                                 // - 周期 tick：上光环立刻跳一次（START_PERIODIC_AT_APPLY）
+                                                                 // - 客户端显示：隐藏持续时间（HIDE_DURATION）
+                                                                 // - 急速影响持续时间：HASTE_AFFECT_DURATION（改变 tick/总时长计算路径）
+                                                                 // - 视线特例：跳过 checkcast LOS（SKIP_CHECKCAST_LOS_CHECK）
+                                                                 // - Charm 限制：被魅惑单位不能施放（NOT_USABLE_WHILE_CHARMED）
+                                                                 // - 朝向控制：施法时不自动转向（DONT_TURN_DURING_CAST）
+        
+        uint32 AttributesEx6;                                    // SpellAttr6：冷却显示/施法阻止光环忽略/Proc 消耗/隐身与不可选目标等杂项高影响位：
+                                                                 // - 忽略施法者限制光环：IGNORE_CASTER_AURAS（绕过“禁止施法/沉默/变形”等阻止类光环检查的一部分）
+                                                                 // - Proc charges：不消耗 proc 层数（DONT_CONSUME_PROC_CHARGES）
+                                                                 // - 事件语义（客户端）：USE_SPELL_CAST_EVENT（影响客户端事件流）
+                                                                 // - CC 目标过滤：隐式目标不命中被控目标（CANT_TARGET_CROWD_CONTROLLED）=> 链式/范围隐式选目标会跳过 CC
+                                                                 // - 场景限制：非团队副本可用性 / 仅竞技场（NOT_IN_RAID_INSTANCE / ONLY_IN_ARENA）
+                                                                 // - 载具：在载具上可施放（CASTABLE_WHILE_ON_VEHICLE）
+                                                                 // - 目标可见性：可选隐形/不可被选中的单位（CAN_TARGET_INVISIBLE / CAN_TARGET_UNTARGETABLE）
+                                                                 // - 摆动计时器：瞬发不重置摆动（NOT_RESET_SWING_IF_INSTANT）
+                                                                 // - 限制百分比修正：限制可应用的%治疗/%伤害修正（LIMIT_PCT_HEALING_MODS / LIMIT_PCT_DAMAGE_MODS）
+                                                                 // - 冷却修正豁免：忽略分类冷却的修正（IGNORE_CATEGORY_COOLDOWN_MODS）
+        
+        uint32 AttributesEx7;                                    // SpellAttr7：阵营/作弊/命中三连（不可躲/招/未命中）/复活与“客户端指示器”等尾部扩展：
+                                                                 // - 时长修正豁免：IGNORE_DURATION_MODS（不吃天赋/光环对持续时间的改动）
+                                                                 // - 死亡时禁用光环：DISABLE_AURA_WHILE_DEAD
+                                                                 // - Cheat spell：需要特定 UnitFlag 才能施放（IS_CHEAT_SPELL）
+                                                                 // - 阵营限制：HORDE_ONLY / ALLIANCE_ONLY
+                                                                 // - 驱散/偷取语义：按 charge 单独移除（DISPEL_CHARGES）
+                                                                 // - 打断限制：只打断非玩家施法（INTERRUPT_ONLY_NONPLAYER）
+                                                                 // - 次级能量恢复：允许恢复非当前活跃能量条（CAN_RESTORE_SECONDARY_POWER）
+                                                                 // - Charge effect：有冲锋类效果（HAS_CHARGE_EFFECT）
+                                                                 // - 区域传送：ZONE_TELEPORT
+                                                                 // - 命中结果强制：不可躲闪/招架/未命中（CANT_DODGE/CANT_PARRY/CANT_MISS）=> 对命中结算链路影响巨大
+                                                                 // - 复活限制绕过：BYPASS_NO_RESURRECT_AURA
+                                                                 // - 寒冷飞行限制绕过：IGNORE_COLD_WEATHER_FLYING
+                                                                 // - 客户端显示：CONSOLIDATED_RAID_BUFF / CLIENT_INDICATOR 等
+                                                                
+        uint32 AttributesCu;                                     // SpellCustomAttributes：TC 额外补充的自定义行为位（用于修复 DBC 不足、兼容不同版本差异、
+                                                                 // 或给核心逻辑提供更明确的分类/快速路径；不对应客户端 DBC 位，完全由服务器定义与消费）
+
+        uint64 Stances;                                          // 允许施放的姿态（如战士姿态、德鲁伊形态）
+
+        uint64 StancesNot;                                       // 禁止施放的姿态掩码
+
+        uint32 Targets;                                          // 目标选择标志（SpellImplicitTarget）
+
+        uint32 TargetCreatureType;                               // 目标生物类型限制（CreatureTypeMask）（亡灵、恶魔等）
+
+        uint32 RequiresSpellFocus;                               // 施法所需的 Spell Focus（施法物件，图腾/法阵）
+
+        uint32 FacingCasterFlags;                                // 是否要求目标面向施法者
+
+        uint32 CasterAuraState;                                  // 施法者必须具备的 Aura 状态
+
+        uint32 TargetAuraState;                                  // 目标必须具备的 Aura 状态
+
+        uint32 CasterAuraStateNot;                               // 施法者不能具备的 Aura 状态
+
+        uint32 TargetAuraStateNot;                               // 目标不能具备的 Aura 状态
+
+        uint32 CasterAuraSpell;                                  // 施法者必须拥有的特定 Aura 法术
+
+        uint32 TargetAuraSpell;                                  // 目标必须拥有的特定 Aura 法术
+
+        uint32 ExcludeCasterAuraSpell;                           // 施法者不能拥有的 Aura 法术
+
+        uint32 ExcludeTargetAuraSpell;                           // 目标不能拥有的 Aura 法术
+
+        SpellCastTimesEntry const* CastTimeEntry;                // 施法时间配置（CastTime.dbc）
+
+        uint32 RecoveryTime;                                     // 独立冷却时间（法术自身冷却时间）
+
+        uint32 CategoryRecoveryTime;                             // 分类冷却时间（共享 CD）
+
+        uint32 StartRecoveryCategory;                            // 启动冷却的分类
+
+        uint32 StartRecoveryTime;                                // 启动冷却的时间（事件触发型）
+
+        uint32 InterruptFlags;                                   // 施法打断条件（移动、受击等）
+
+        uint32 AuraInterruptFlags;                               // Aura 可被打断的条件
+
+        uint32 ChannelInterruptFlags;                            // 引导法术的打断条件
+
+        uint32 ProcFlags;                                        // 触发条件（被攻击、暴击等）
+
+        uint32 ProcChance;                                       // 触发概率百分比
+
+        uint32 ProcCharges;                                      // 可触发次数
+
+        uint32 MaxLevel;                                         // 法术允许施放的最大目标等级
+
+        uint32 BaseLevel;                                        // 法术基础等级
+
+        uint32 SpellLevel;                                       // 法术等级（用于判定学习 / 命中）
+
+        SpellDurationEntry const* DurationEntry;                 // 法术持续时间配置
+
+        Powers PowerType;                                        // 消耗的能量类型（Mana / Rage / Energy 等）
+
+        uint32 ManaCost;                                         // 固定能量消耗
+
+        uint32 ManaCostPerlevel;                                 // 每等级额外能量消耗
+
+        uint32 ManaPerSecond;                                    // 每秒能量消耗（引导法术）
+
+        uint32 ManaPerSecondPerLevel;                            // 每等级每秒能量消耗
+
+        uint32 ManaCostPercentage;                               // 按百分比能量消耗
+
+        uint32 RuneCostID;                                       // 符文消耗配置（死亡骑士）
+
+        SpellRangeEntry const* RangeEntry;                       // 施法距离配置
+
+        float  Speed;                                            // 飞行速度（飞弹、投射物）
+
+        uint32 StackAmount;                                      // 最大叠加层数
+
+        std::array<uint32, 2> Totem;                             // 施法所需图腾
+
+        std::array<int32, MAX_SPELL_REAGENTS> Reagent;           // 法术所需材料
+
+        std::array<uint32, MAX_SPELL_REAGENTS> ReagentCount;     // 法术所需材料数量
+
+        int32  EquippedItemClass;                                // 装备类型限制
+
+        int32  EquippedItemSubClassMask;                         // 装备子类型掩码
+
+        int32  EquippedItemInventoryTypeMask;                    // 装备槽位掩码
+
+        std::array<uint32, 2> TotemCategory;                     // 图腾分类限制
+
+        std::array<uint32, 2> SpellVisual;                       // 法术视觉效果 ID
+
+        uint32 SpellIconID;                                      // 法术图标 ID
+
+        uint32 ActiveIconID;                                     // 激活状态图标 ID
+
+        uint32 Priority;                                         // 法术优先级（客户端/系统使用）
+
+        std::array<char const*, 16> SpellName;                   // 法术名称（多语言）
+
+        std::array<char const*, 16> Rank;                        // 法术等级描述（多语言）
+
+        uint32 MaxTargetLevel;                                   // 最大可影响目标等级
+
+        uint32 MaxAffectedTargets;                               // 最大可影响目标数量
+
+        uint32 SpellFamilyName;                                  // 法术家族（职业相关）
+
+        flag96 SpellFamilyFlags;                                 // 法术家族标志位（用于天赋/触发）
+
+        uint32 DmgClass;                                         // 伤害类型（近战 / 远程 / 魔法）
+
+        uint32 PreventionType;                                   // 免疫类型（如沉默）
+
+        int32  AreaGroupId;                                      // 区域限制（仅允许在特定区域）
+
+        uint32 SchoolMask;                                       // 法术学派掩码（Fire/Frost/Arcane 等）
+
+        std::array<SpellEffectInfo, MAX_SPELL_EFFECTS> _effects; // 法术效果数组（最多 3 个）
+
+        uint32 ExplicitTargetMask;                               // 显式目标掩码（运行时计算）
+
+        SpellChainNode const* ChainEntry;                        // 法术等级链（Rank 链）
 
         SpellInfo(SpellEntry const* spellEntry);
         ~SpellInfo();

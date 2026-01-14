@@ -138,10 +138,10 @@ int main(int argc, char** argv)
     // 初始化多语言的环境
     Trinity::Locale::Init();
 
-    // 创建配置文件对象
+    // 此处得到了配置文件的绝对路径
     auto configFile = fs::absolute(_TRINITY_CORE_CONFIG);
-
     auto configDir  = fs::absolute(_TRINITY_CORE_CONFIG_DIR);
+
     std::string winServiceAction;
     // 处理命令行参数
     auto vm = GetConsoleArguments(argc, argv, configFile, configDir, winServiceAction);
@@ -199,6 +199,7 @@ int main(int argc, char** argv)
 
 #endif
 
+    // 加载 configFile 配置文件中的配置条目至 sConfigMgr
     std::string configError;
     if (!sConfigMgr->LoadInitial(configFile.generic_string(),
                                  std::vector<std::string>(argv, argv + argc), // 起始参数和结束参数
@@ -210,7 +211,9 @@ int main(int argc, char** argv)
 
     std::vector<std::string> loadedConfigFiles;
     std::vector<std::string> configDirErrors;
+    // 加载 configDir 配置文件夹中所有配置文件的配置条目至 sConfigMgr
     bool additionalConfigFileLoadSuccess = sConfigMgr->LoadAdditionalDir(configDir.generic_string(), true, loadedConfigFiles, configDirErrors);
+    // 文件夹下加载了多少个配置文件
     for (std::string const& loadedConfigFile : loadedConfigFiles)
         printf("Loaded additional config file %s\n", loadedConfigFile.c_str());
 
@@ -230,7 +233,8 @@ int main(int argc, char** argv)
 
     // log system 默认初始化 AppenderConsole 和 AppenderFile，worldserver 追加一个 AppenderDB
     sLog->RegisterAppender<AppenderDB>();
-    // 异步日志支持
+    // 异步日志支持；
+    // 此处的异步逻辑依赖于 boost::asio::io_context 与 boost::asio::strand 来完成； 
     // If logs are supposed to be handled async then we need to pass the IoContext into the Log singleton
     sLog->Initialize(sConfigMgr->GetBoolDefault("Log.Async.Enable", false) ? ioContext.get() : nullptr);
 
@@ -341,7 +345,7 @@ int main(int argc, char** argv)
         sMetric->Unload();
     });
 
-    // AddScripts函数 由 cmake.in 文件生成，在build目录下
+    // AddScripts 函数由 cmake.in 文件生成，在 build/src/server/scripts/gen_scriptloader/ 目录下
     // 该函数的最终调用出现在 SetInitialWorldSettings 时调用了 ScriptMgr::Initialize
     //
     // 在 static 模式下

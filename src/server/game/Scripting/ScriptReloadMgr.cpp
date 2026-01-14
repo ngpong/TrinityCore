@@ -280,9 +280,12 @@ Optional<std::shared_ptr<ScriptModule>>
         return {};
     }
 
-    // RAII 释放 dlopen 的文件
-    // 如果发生在获取符号的过程中发生异常则直接释放
-    // 否则将其移动至 ScriptModule 内部，生命周期交由 ScriptModule 管理
+    // 这是一种 RAII 内存管理方案；
+    //
+    // 如果获取符号失败，则 holder 被释放并回调 SharedLibraryUnloader 来 dlclose(handle)；
+    //
+    // 如果获取符号成功，则移动 holder 至 ScriptModule 实例，转交生命周期管理权；
+    //
     // Use RAII to release the library on failure.
     HandleHolder holder(handle, SharedLibraryUnloader(path, std::move(cache_path)));
 
@@ -299,7 +302,12 @@ Optional<std::shared_ptr<ScriptModule>>
         auto module = new ScriptModule(std::move(holder), getScriptModuleRevisionHash,
             addScripts, getScriptModule, getBuildDirective, path);
 
-        // 延迟释放，为什么？
+        // 使用 shareed_ptr 包装 ScriptModule
+        // 
+        // 插入延迟释放逻辑 ScheduleDelayedDelete；使得释放操作会延迟到下一个逻辑帧；
+        //
+        // 这种延迟释放工作是为了确保所有对该脚本模块的引用都已移除；
+        //
         // Unload the module at the next update tick as soon as all references are removed
         return std::shared_ptr<ScriptModule>(module, ScheduleDelayedDelete);
     }
@@ -583,6 +591,7 @@ public:
     /// into the running server.
     void Initialize() final override
     {
+        // 是否允许热更(hotswap)
         if (!sWorld->getBoolConfig(CONFIG_HOTSWAP_ENABLED))
             return;
 
@@ -597,6 +606,7 @@ public:
             return;
         }
 
+        // 查看脚本动态库的文件夹是否存在 env/bin/scripts/
         {
             auto const library_directory = GetLibraryDirectory();
             if (!fs::exists(library_directory) || !fs::is_directory(library_directory))
@@ -607,10 +617,11 @@ public:
             }
         }
 
-        // /tmp/tc_script_cache_{git_branch}_{sha1}
+        // 用于存放脚本动态库的临时文件夹：/tmp/tc_script_cache_{git_branch}_{sha1}
         temporary_cache_path_ = CalculateTemporaryCachePath();
 
-        // 创建 temporyary_cache_path_ 的目录
+        // 如果不存在 temporary_cache_path_ 目录则创建
+        //
         // We use the boost filesystem function versions which accept
         // an error code to prevent it from throwing exceptions.
         boost::system::error_code code;
@@ -628,6 +639,7 @@ public:
         (void)code;
 
         // 如果运行可执行文件时所在的路径和 CMAKE_INSTALL_PREFIX 的不同则会修改 CmakeCache.txt 文件
+        //
         // Correct the CMake prefix when needed
         if (sWorld->getBoolConfig(CONFIG_HOTSWAP_PREFIX_CORRECTION_ENABLED))
             DoCMakePrefixCorrectionIfNeeded();
@@ -723,13 +735,15 @@ private:
     // scripts directory on startup.
     void InitializeDefaultLibraries()
     {
-        fs::path const libraryDirectory(GetLibraryDirectory()); // /home/ngpong/TrinityCore/env/bin/scripts
+        fs::path const libraryDirectory(GetLibraryDirectory()); // env/bin/scripts/
         fs::directory_iterator const dir_end;
 
         uint32 count = 0;
 
+        // 遍历该目录下的所有文件
         // Iterate through all shared libraries in the script directory and load it
         for (fs::directory_iterator dir_itr(libraryDirectory); dir_itr != dir_end ; ++dir_itr)
+            // 检查文件名有效性，我们只需要操作与脚本有关的so文件，libscripts_<mod>.so；
             if (fs::is_regular_file(dir_itr->path()) && HasValidScriptModuleName(dir_itr->path().filename().generic_string()))
             {
                 TC_LOG_INFO("scripts.hotswap", "Loading script module \"{}\"...",
@@ -864,14 +878,15 @@ private:
 
     void ProcessLoadScriptModule(fs::path const& path, bool swap_context = true)
     {
+        // 脚本在运行时无法重新加载它的动态库
         ASSERT(_running_script_module_names.find(path) == _running_script_module_names.end(),
                "Can't load a module which is running already!");
 
-        // ${temporary_cache_path_}/libscripts_<name>.<_unique_library_name_counter>.so
+        // ${temporary_cache_path_}/libscripts_<sc_name>.<_unique_library_name_counter>.so
         // Copy the shared library into a cache
         auto cache_path = GenerateUniquePathForLibraryInCache(path);
 
-        // 将 libscripts_<name>.so 拷贝至 ${temporary_cache_path_}/libscripts_<name>.<_unique_library_name_counter>.so
+        // 将 env/bin/scripts/libscripts_<sc_name>.so 拷贝至 ${temporary_cache_path_}/libscripts_<sc_name>.<_unique_library_name_counter>.so
         {
             boost::system::error_code code;
             fs::copy_file(path, cache_path, code);
@@ -893,12 +908,15 @@ private:
                 path.filename().generic_string(), cache_path.generic_string());
         }
 
-        // 加载 cache_path(拷贝至 path) 的 so 文件内容，并将符号暴露出来创建为 ScriptModule 对象
-        //  * 暴露的符号包括：
-        //      * GetScriptModuleRevisionHash
-        //      * AddScripts
-        //      * GetScriptModule
-        //      * GetBuildDirective
+        // 加载(dlopen) cache_path 路径的 so 文件；
+        //
+        // 将符号暴露出来创建为 ScriptModule 对象；暴露的符号包括
+        // • GetScriptModuleRevisionHash
+        // • AddScripts
+        // • GetScriptModule
+        // • GetBuildDirective
+        //
+        // 返回的 ScriptModule 使用 shared_ptr 包装，并插入了延迟释放的逻辑；
         auto module = ScriptModule::CreateFromPath(path, cache_path);
         if (!module)
         {
@@ -934,7 +952,8 @@ private:
             std::size_t const trim = std::min(module_revision.size(), my_revision_hash.size());
             my_revision_hash = my_revision_hash.substr(0, trim);
             module_revision = module_revision.substr(0, trim);
-
+            
+            // 脚本的修订版本最好和TC核心的版本保持一致，否则会引起一些UB
             if (my_revision_hash != module_revision)
             {
                 TC_LOG_WARN("scripts.hotswap", ">> Script module \"{}\" has a different revision hash! "
@@ -954,7 +973,10 @@ private:
             }
         }
 
-        // 添加 src/server/scripts/<script_name_dir> 目录下的文件修改 watcher
+        // 添加 efsw watcher 监听 src/server/scripts/<module_name> 目录下的文件修改；
+        //
+        // 任何修改会回调 SourceUpdateListener::handleFileAction 函数以重新执行编译例程并加载脚本；
+        //
         // Create the source listener
         auto listener = std::make_unique<SourceUpdateListener>(
             sScriptReloadMgr->GetSourceDirectory() / module_name,
@@ -967,10 +989,12 @@ private:
             std::make_pair(*module, std::move(listener))));
         _running_script_module_names.insert(std::make_pair(path, module_name));
 
+        // 设置 _currentContext = module_name；暂时不清楚作用
         // Process the script loading after the module was registered correctly (#17557).
         sScriptMgr->SetScriptContext(module_name);
 
-        // 开始调用其内部的各种 AddScripts 函数，详见 main.cpp 中的注释
+        // 此处最终会调用到 <mod>_script_loader.cpp::Add<mod>Scripts 函数；
+        // 该函数完成当前脚本的注册逻辑；
         (*module)->AddScripts();
         TC_LOG_TRACE("scripts.hotswap", ">> Registered all scripts of module {}.", module_name);
 

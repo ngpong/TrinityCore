@@ -419,297 +419,807 @@ uint32 constexpr QuestDifficultyColors[MAX_QUEST_DIFFICULTY] = {
 enum SpellAttr0 : uint32
 {
     SPELL_ATTR0_UNK0                             = 0x00000001, // TITLE Unknown attribute 0@Attr0
+                                                               // 未知属性位。通常为历史遗留或客户端/服务端尚未完全确认用途的标志位，可能被部分法术错误地设置或仅用于占位。
+
     SPELL_ATTR0_REQ_AMMO                         = 0x00000002, // TITLE Treat as ranged attack DESCRIPTION Use ammo, ranged attack range modifiers, ranged haste, etc.
+                                                               // 将法术视为远程攻击。施放时需要消耗弹药（箭/子弹），并使用远程攻击距离、远程急速、远程命中等规则，而不是普通法术规则。
+
     SPELL_ATTR0_ON_NEXT_SWING                    = 0x00000004, // TITLE On next melee (type 1) DESCRIPTION Both "on next swing" attributes have identical handling in server & client
+                                                               // 下一次近战攻击触发（类型1）。该类技能不会立即造成效果，而是在下一次成功的近战挥击时附带触发。
+
     SPELL_ATTR0_IS_REPLENISHMENT                 = 0x00000008, // TITLE Replenishment (client only)
+                                                               // 回蓝类法术（客户端标记）。主要用于客户端显示和提示，与服务器逻辑基本无关。
+
     SPELL_ATTR0_ABILITY                          = 0x00000010, // TITLE Treat as ability DESCRIPTION Cannot be reflected, not affected by cast speed modifiers, etc.
+                                                               // 将法术视为“技能”而非法术。通常不可被反射、不受施法速度加成影响，常用于瞬发技能或战斗动作。
+
     SPELL_ATTR0_TRADESPELL                       = 0x00000020, // TITLE Trade skill recipe DESCRIPTION Displayed in recipe list, not affected by cast speed modifiers
+                                                               // 专业技能配方法术。会显示在专业配方列表中，不受施法速度影响，一般只用于制造/采集系统。
+
     SPELL_ATTR0_PASSIVE                          = 0x00000040, // TITLE Passive spell DESCRIPTION Spell is automatically cast on self by core
+                                                               // 被动法术。服务器自动给自己施加（学习/登录/光环维持），不需要玩家主动施放，也不会显示施法过程。
+
     SPELL_ATTR0_HIDDEN_CLIENTSIDE                = 0x00000080, // TITLE Hidden in UI (client only) DESCRIPTION Not visible in spellbook or aura bar
+                                                               // 客户端界面隐藏。该法术不会显示在技能书或光环栏中，通常用于内部或辅助效果。
+
     SPELL_ATTR0_HIDE_IN_COMBAT_LOG               = 0x00000100, // TITLE Hidden in combat log (client only) DESCRIPTION Spell will not appear in combat logs
+                                                               // 战斗日志隐藏。该法术的施放或效果不会出现在战斗记录中，减少日志干扰。
+
     SPELL_ATTR0_TARGET_MAINHAND_ITEM             = 0x00000200, // TITLE Auto-target mainhand item (client only) DESCRIPTION Client will automatically select main-hand item as cast target
+                                                               // 自动选中主手武器作为目标。常用于武器附魔、强化等技能，避免玩家手动选择目标。
+
     SPELL_ATTR0_ON_NEXT_SWING_2                  = 0x00000400, // TITLE On next melee (type 2) DESCRIPTION Both "on next swing" attributes have identical handling in server & client
+                                                               // 下一次近战攻击触发（类型2）。与 type1 在逻辑上等价，主要用于数据区分或历史兼容。
+
     SPELL_ATTR0_UNK11                            = 0x00000800, // TITLE Unknown attribute 11@Attr0
+                                                               // 未知属性位。当前尚未明确用途，可能仅被客户端识别或已废弃。
+
     SPELL_ATTR0_DAYTIME_ONLY                     = 0x00001000, // TITLE Only usable during daytime (unused)
+                                                               // 仅白天可用（未使用）。理论上限制技能只能在白天施放，实际版本中通常未启用。
+
     SPELL_ATTR0_NIGHT_ONLY                       = 0x00002000, // TITLE Only usable during nighttime (unused)
+                                                               // 仅夜晚可用（未使用）。与白天标志类似，多为设计遗留。
+
     SPELL_ATTR0_INDOORS_ONLY                     = 0x00004000, // TITLE Only usable indoors
+                                                               // 只能在室内使用。服务器会检查施法者是否处于室内环境。
+
     SPELL_ATTR0_OUTDOORS_ONLY                    = 0x00008000, // TITLE Only usable outdoors
+                                                               // 只能在室外使用。常见于坐骑、召唤类或自然相关技能。
+
     SPELL_ATTR0_NOT_SHAPESHIFT                   = 0x00010000, // TITLE Not usable while shapeshifted
+                                                               // 变形状态下不可用。用于限制德鲁伊等职业在变形时使用特定技能。
+
     SPELL_ATTR0_ONLY_STEALTHED                   = 0x00020000, // TITLE Only usable in stealth
+                                                               // 只能在潜行状态下使用。常见于盗贼的开场技能。
+
     SPELL_ATTR0_DONT_AFFECT_SHEATH_STATE         = 0x00040000, // TITLE Don't shealthe weapons (client only)
+                                                               // 不影响武器收放状态。施法时不会触发客户端的武器拔出或收回动画。
+
     SPELL_ATTR0_LEVEL_DAMAGE_CALCULATION         = 0x00080000, // TITLE Scale with caster level DESCRIPTION For non-player casts, scale impact and power cost with caster's level
+                                                               // 伤害与消耗随施法者等级缩放。多用于 NPC 或怪物技能，保证低高等级表现合理。
+
     SPELL_ATTR0_STOP_ATTACK_TARGET               = 0x00100000, // TITLE Stop attacking after cast DESCRIPTION After casting this, the current auto-attack will be interrupted
+                                                               // 施放后中断自动攻击。技能施放完成后会停止当前普攻循环。
+
     SPELL_ATTR0_IMPOSSIBLE_DODGE_PARRY_BLOCK     = 0x00200000, // TITLE Prevent physical avoidance DESCRIPTION Spell cannot be dodged, parried or blocked
+                                                               // 无法被闪避、招架或格挡。用于保证技能必定命中（物理层面）。
+
     SPELL_ATTR0_CAST_TRACK_TARGET                = 0x00400000, // TITLE Automatically face target during cast (client only)
+                                                               // 施法时自动面向目标。客户端辅助功能，避免因朝向错误导致施法失败。
+
     SPELL_ATTR0_CASTABLE_WHILE_DEAD              = 0x00800000, // TITLE Can be cast while dead DESCRIPTION Spells without this flag cannot be cast by dead units in non-triggered contexts
+                                                               // 死亡状态可施放。常用于灵魂状态技能、复活前技能或特殊机制。
+
     SPELL_ATTR0_CASTABLE_WHILE_MOUNTED           = 0x01000000, // TITLE Can be cast while mounted
+                                                               // 骑乘状态下可施放。常见于非战斗技能或坐骑专用技能。
+
     SPELL_ATTR0_DISABLED_WHILE_ACTIVE            = 0x02000000, // TITLE Cooldown starts on expiry DESCRIPTION Spell is unusable while already active, and cooldown does not begin until the effects have worn off
+                                                               // 效果持续期间不可再次使用，冷却在效果结束后才开始计算。
+
     SPELL_ATTR0_NEGATIVE_1                       = 0x04000000, // TITLE Is negative spell DESCRIPTION Forces the spell to be treated as a negative spell
+                                                               // 强制视为负面法术。用于仇恨、驱散、光环判定等逻辑。
+
     SPELL_ATTR0_CASTABLE_WHILE_SITTING           = 0x08000000, // TITLE Can be cast while sitting
+                                                               // 坐下状态可施放。少数技能允许在休息或坐下时使用。
+
     SPELL_ATTR0_CANT_USED_IN_COMBAT              = 0x10000000, // TITLE Cannot be used in combat
+                                                               // 战斗中不可使用。典型用于坐骑、传送、制造类技能。
+
     SPELL_ATTR0_UNAFFECTED_BY_INVULNERABILITY    = 0x20000000, // TITLE Pierce invulnerability DESCRIPTION Allows spell to pierce invulnerability, unless the invulnerability spell also has this attribute
+                                                               // 穿透无敌效果。可以作用于无敌目标，除非目标的无敌技能同样声明可互相穿透。
+
     SPELL_ATTR0_HEARTBEAT_RESIST_CHECK           = 0x40000000, // TITLE Periodic resistance checks DESCRIPTION Periodically re-rolls against resistance to potentially expire aura early
+                                                               // 周期性抗性判定。光环在持续期间会定期重新判定抗性，可能提前失效。
+
     SPELL_ATTR0_CANT_CANCEL                      = 0x80000000  // TITLE Aura cannot be cancelled DESCRIPTION Prevents the player from voluntarily canceling a positive aura
+                                                               // 光环不可手动取消。玩家无法右键移除该正面效果，常用于剧情或核心机制。
 };
 
 // EnumUtils: DESCRIBE THIS
 enum SpellAttr1 : uint32
 {
     SPELL_ATTR1_DISMISS_PET                      = 0x00000001, // TITLE Dismiss Pet on cast DESCRIPTION Without this attribute, summoning spells will fail if caster already has a pet
+                                                               // 施法时解散当前宠物。若召唤类法术没有该标志，当施法者已有宠物时将直接失败。
+
     SPELL_ATTR1_DRAIN_ALL_POWER                  = 0x00000002, // TITLE Drain all power DESCRIPTION Ignores listed power cost and drains entire pool instead
+                                                               // 消耗全部能量资源。忽略技能表中配置的消耗值，直接清空对应能量池（法力/能量/怒气等）。
+
     SPELL_ATTR1_CHANNELED_1                      = 0x00000004, // TITLE Channeled (type 1) DESCRIPTION Both "channeled" attributes have identical handling in server & client
+                                                               // 引导法术（类型1）。施法后进入持续引导状态，效果在引导期间周期性触发。
+
     SPELL_ATTR1_CANT_BE_REDIRECTED               = 0x00000008, // TITLE Ignore redirection effects DESCRIPTION Spell will not be attracted by SPELL_MAGNET auras (Grounding Totem)
+                                                               // 不受重定向影响。法术不会被法术磁铁类效果吸引（如萨满的根基图腾）。
+
     SPELL_ATTR1_UNK4                             = 0x00000010, // TITLE Unknown attribute 4@Attr1
+                                                               // 未知属性位。用途不明确，可能为废弃字段或客户端私有逻辑残留。
+
     SPELL_ATTR1_NOT_BREAK_STEALTH                = 0x00000020, // TITLE Does not break stealth
+                                                               // 施放后不打破潜行状态。常用于盗贼的某些非攻击性或特殊技能。
+
     SPELL_ATTR1_CHANNELED_2                      = 0x00000040, // TITLE Channeled (type 2) DESCRIPTION Both "channeled" attributes have identical handling in server & client
+                                                               // 引导法术（类型2）。与 type1 在逻辑上等价，主要用于数据或版本区分。
+
     SPELL_ATTR1_CANT_BE_REFLECTED                = 0x00000080, // TITLE Ignore reflection effects DESCRIPTION Spell will pierce through Spell Reflection and similar
+                                                               // 无法被反射。法术会无视法术反射类效果，直接作用于目标。
+
     SPELL_ATTR1_CANT_TARGET_IN_COMBAT            = 0x00000100, // TITLE Target cannot be in combat
+                                                               // 目标必须处于非战斗状态。若目标已进入战斗，施法将失败。
+
     SPELL_ATTR1_MELEE_COMBAT_START               = 0x00000200, // TITLE Starts auto-attack (client only) DESCRIPTION Caster will begin auto-attacking the target on cast
+                                                               // 施法后自动开始近战攻击。客户端行为，用于技能释放后自动接入普攻。
+
     SPELL_ATTR1_NO_THREAT                        = 0x00000400, // TITLE Does not generate threat DESCRIPTION Also does not cause target to engage
+                                                               // 不产生仇恨值。施放该法术不会增加仇恨，也不会使目标进入战斗状态。
+
     SPELL_ATTR1_DONT_REFRESH_DURATION_ON_RECAST  = 0x00000800, // TITLE Aura will not refresh its duration when recast
+                                                               // 重复施放不刷新持续时间。光环存在期间再次施放，不会重置剩余时长。
+
     SPELL_ATTR1_IS_PICKPOCKET                    = 0x00001000, // TITLE Pickpocket (client only)
+                                                               // 扒窃技能标记。客户端用于识别盗贼的扒窃行为与相关UI反馈。
+
     SPELL_ATTR1_FARSIGHT                         = 0x00002000, // TITLE Farsight aura (client only)
+                                                               // 远视类光环。客户端用于处理视角转移、摄像机绑定等效果。
+
     SPELL_ATTR1_CHANNEL_TRACK_TARGET             = 0x00004000, // TITLE Track target while channeling DESCRIPTION While channeling, adjust facing to face target
+                                                               // 引导期间持续追踪目标。施法者会在引导过程中自动调整朝向以面对目标。
+
     SPELL_ATTR1_DISPEL_AURAS_ON_IMMUNITY         = 0x00008000, // TITLE Immunity cancels preapplied auras DESCRIPTION For immunity spells, cancel all auras that this spell would make you immune to when the spell is applied
+                                                               // 获得免疫时驱散已有相关光环。施放免疫技能时，会移除所有该免疫可覆盖的已有效果。
+
     SPELL_ATTR1_UNAFFECTED_BY_SCHOOL_IMMUNE      = 0x00010000, // TITLE Unaffected by school immunities DESCRIPTION Will not pierce Divine Shield, Ice Block and other full invulnerabilities
+                                                               // 不受“学派免疫”影响，但仍受完全无敌影响。可无视抗性或学派免疫，但无法穿透完全无敌状态。
+
     SPELL_ATTR1_UNAUTOCASTABLE_BY_PET            = 0x00020000, // TITLE Cannot be autocast by pet
+                                                               // 宠物无法自动施放。必须由玩家手动控制，防止AI误用。
+
     SPELL_ATTR1_PREVENTS_ANIM                    = 0x00040000, // TITLE NYI, auras apply UNIT_FLAG_PREVENT_EMOTES_FROM_CHAT_TEXT
+                                                               // 阻止表情动画（未完全实现）。光环会禁止聊天文本触发的表情动作。
+
     SPELL_ATTR1_CANT_TARGET_SELF                 = 0x00080000, // TITLE Cannot be self-cast
+                                                               // 不能以自身为目标。即使满足其他条件，也禁止对自己施放。
+
     SPELL_ATTR1_REQ_COMBO_POINTS1                = 0x00100000, // TITLE Requires combo points (type 1)
+                                                               // 需要连击点数（类型1）。通常用于盗贼/德鲁伊终结技的基础校验。
+
     SPELL_ATTR1_UNK21                            = 0x00200000, // TITLE Unknown attribute 21@Attr1
+                                                               // 未知属性位。用途不明，可能为历史版本残留。
+
     SPELL_ATTR1_REQ_COMBO_POINTS2                = 0x00400000, // TITLE Requires combo points (type 2)
+                                                               // 需要连击点数（类型2）。与 type1 语义接近，多为数据或兼容性区分。
+
     SPELL_ATTR1_UNK23                            = 0x00800000, // TITLE Unknwon attribute 23@Attr1
+                                                               // 未知属性位。当前未发现明确服务器逻辑用途。
+
     SPELL_ATTR1_IS_FISHING                       = 0x01000000, // TITLE Fishing (client only)
+                                                               // 钓鱼技能标记。客户端用于切换钓鱼相关UI、动作与摄像机行为。
+
     SPELL_ATTR1_UNK25                            = 0x02000000, // TITLE Unknown attribute 25@Attr1
+                                                               // 未知属性位。可能仅在特定资料片或客户端逻辑中使用。
+
     SPELL_ATTR1_REQUIRE_ALL_TARGETS              = 0x04000000, // TITLE Require All Targets
+                                                               // 要求所有目标都有效。多目标法术中，若任一目标不满足条件，则整体施法失败。
+
     SPELL_ATTR1_UNK27                            = 0x08000000, // TITLE Unknown attribute 27@Attr1 DESCRIPTION Melee spell?
+                                                               // 疑似近战相关标记。部分数据中与近战技能共现，但用途未完全确认。
+
     SPELL_ATTR1_DONT_DISPLAY_IN_AURA_BAR         = 0x10000000, // TITLE Hide in aura bar (client only)
+                                                               // 不显示在光环栏中。效果仍然存在，仅对客户端UI隐藏。
+
     SPELL_ATTR1_CHANNEL_DISPLAY_SPELL_NAME       = 0x20000000, // TITLE Show spell name during channel (client only)
+                                                               // 引导期间显示法术名称。用于客户端施法条或UI提示。
+
     SPELL_ATTR1_ENABLE_AT_DODGE                  = 0x40000000, // TITLE Enable at dodge
+                                                               // 在闪避事件时触发或启用。常用于“成功闪避后可使用”的技能机制。
+
     SPELL_ATTR1_UNK31                            = 0x80000000  // TITLE Unknown attribute 31@Attr1
+                                                               // 未知属性位。最高位标记，可能为客户端或未来扩展预留。
 };
 
 // EnumUtils: DESCRIBE THIS
-enum SpellAttr2 : uint32
+enum SpellAttr2 : uint32 
 {
     SPELL_ATTR2_CAN_TARGET_DEAD                  = 0x00000001, // TITLE Can target dead players or corpses
+                                                               // 可以以死亡单位或尸体为目标。常用于复活、复生、尸体交互类技能。
+
     SPELL_ATTR2_UNK1                             = 0x00000002, // TITLE Unknown attribute 1@Attr2
+                                                               // 未知属性位。用途尚不明确，可能为客户端或早期版本残留。
+
     SPELL_ATTR2_CAN_TARGET_NOT_IN_LOS            = 0x00000004, // TITLE Ignore Line of Sight
+                                                               // 忽略视线检测。施法不受 LOS（Line of Sight）限制，可隔墙或遮挡施放。
+
     SPELL_ATTR2_ALLOW_LOW_LEVEL_BUFF             = 0x00000008, // TITLE Allow Low Level Buff
+                                                               // 允许对低等级目标施放增益。绕过等级差限制，常用于祝福、团队增益等技能。
+
     SPELL_ATTR2_DISPLAY_IN_STANCE_BAR            = 0x00000010, // TITLE Show in stance bar (client only)
+                                                               // 显示在姿态栏中。客户端用于战士/德鲁伊等职业的姿态技能显示。
+
     SPELL_ATTR2_AUTOREPEAT_FLAG                  = 0x00000020, // TITLE Ranged auto-attack spell
+                                                               // 远程自动攻击技能。用于标记射击/投掷等可持续自动重复的攻击行为。
+
     SPELL_ATTR2_CANT_TARGET_TAPPED               = 0x00000040, // TITLE Cannot target others' tapped units DESCRIPTION Can only target untapped units, or those tapped by caster
+                                                               // 不能以他人已占用（tapped）的单位为目标。只能作用于未被占用或由自己占用的目标。
+
     SPELL_ATTR2_UNK7                             = 0x00000080, // TITLE Unknown attribute 7@Attr2
+                                                               // 未知属性位。未发现明确服务器逻辑用途。
+
     SPELL_ATTR2_UNK8                             = 0x00000100, // TITLE Unknown attribute 8@Attr2
+                                                               // 未知属性位。可能仅影响客户端表现或已废弃。
+
     SPELL_ATTR2_UNK9                             = 0x00000200, // TITLE Unknown attribute 9@Attr2
+                                                               // 未知属性位。暂未确认实际作用。
+
     SPELL_ATTR2_UNK10                            = 0x00000400, // TITLE Unknown attribute 10@Attr2 DESCRIPTION Related to taming?
+                                                               // 疑似与驯服机制相关。常与野兽驯服类技能数据同时出现。
+
     SPELL_ATTR2_HEALTH_FUNNEL                    = 0x00000800, // TITLE Health Funnel
+                                                               // 生命通道技能标记。用于术士生命通道，将施法者生命持续转移给宠物。
+
     SPELL_ATTR2_UNK12                            = 0x00001000, // TITLE Unknown attribute 12@Attr2
+                                                               // 未知属性位。用途尚未确认。
+
     SPELL_ATTR2_PRESERVE_ENCHANT_IN_ARENA        = 0x00002000, // TITLE Enchant persists when entering arena
+                                                               // 进入竞技场时保留附魔效果。防止竞技场规则清除特定临时附魔。
+
     SPELL_ATTR2_UNK14                            = 0x00004000, // TITLE Unknown attribute 14@Attr2
+                                                               // 未知属性位。可能为数据占位。
+
     SPELL_ATTR2_UNK15                            = 0x00008000, // TITLE Unknown attribute 15@Attr2
+                                                               // 未知属性位。尚无明确用途。
+
     SPELL_ATTR2_TAME_BEAST                       = 0x00010000, // TITLE Tame Beast
+                                                               // 驯服野兽技能标记。用于猎人驯服野兽的完整流程控制。
+
     SPELL_ATTR2_NOT_RESET_AUTO_ACTIONS           = 0x00020000, // TITLE Don't reset swing timer DESCRIPTION Does not reset melee/ranged autoattack timer on cast
+                                                               // 施法不重置普攻计时器。允许技能施放与自动攻击节奏并行。
+
     SPELL_ATTR2_REQ_DEAD_PET                     = 0x00040000, // TITLE Requires dead pet
+                                                               // 需要死亡的宠物。常用于复活宠物类技能。
+
     SPELL_ATTR2_NOT_NEED_SHAPESHIFT              = 0x00080000, // TITLE Also allow outside shapeshift DESCRIPTION Even if Stances are nonzero, allow spell to be cast outside of shapeshift (though not in a different shapeshift)
+                                                               // 允许在未变形状态下施放。即使技能限定某姿态，也允许“非变形”状态使用，但不能跨其他姿态。
+
     SPELL_ATTR2_UNK20                            = 0x00100000, // TITLE Unknown attribute 20@Attr2
+                                                               // 未知属性位。可能与特定版本机制有关。
+
     SPELL_ATTR2_FAIL_ON_ALL_TARGETS_IMMUNE       = 0x00200000, // TITLE Fail on all targets immune DESCRIPTION Causes BG flags to be dropped if combined with ATTR1_DISPEL_AURAS_ON_IMMUNITY
+                                                               // 当所有目标免疫时施法失败。与免疫驱散组合时会触发特殊逻辑（如战场旗帜掉落）。
+
     SPELL_ATTR2_UNK22                            = 0x00400000, // TITLE Unknown attribute 22@Attr2
+                                                               // 未知属性位。用途尚不明确。
+
     SPELL_ATTR2_IS_ARCANE_CONCENTRATION          = 0x00800000, // TITLE Arcane Concentration
+                                                               // 奥术专注标记。用于法师“节能施法/清晰施法”类天赋与触发逻辑。
+
     SPELL_ATTR2_UNK24                            = 0x01000000, // TITLE Unknown attribute 24@Attr2
+                                                               // 未知属性位。未发现明确行为差异。
+
     SPELL_ATTR2_UNK25                            = 0x02000000, // TITLE Unknown attribute 25@Attr2
+                                                               // 未知属性位。可能为客户端保留。
+
     SPELL_ATTR2_UNAFFECTED_BY_AURA_SCHOOL_IMMUNE = 0x04000000, // TITLE Pierce aura application immunities DESCRIPTION Allow aura to be applied despite target being immune to new aura applications
+                                                               // 穿透“光环施加免疫”。即使目标无法获得新光环，也强制应用该光环。
+
     SPELL_ATTR2_UNK27                            = 0x08000000, // TITLE Unknown attribute 27@Attr2
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR2_UNK28                            = 0x10000000, // TITLE Unknown attribute 28@Attr2
+                                                               // 未知属性位。可能为未来扩展或废弃字段。
+
     SPELL_ATTR2_CANT_CRIT                        = 0x20000000, // TITLE Cannot critically strike
+                                                               // 无法造成暴击。无论暴击率如何，效果都不会产生暴击结果。
+
     SPELL_ATTR2_ACTIVE_THREAT                    = 0x40000000, // TITLE Active Threat
+                                                               // 主动仇恨技能。施放后会立即引发目标仇恨反应，强制进入战斗逻辑。
+
     SPELL_ATTR2_FOOD_BUFF                        = 0x80000000  // TITLE Food buff (client only)
+                                                               // 食物增益标记。客户端用于区分食物/饮料带来的持续增益效果。
 };
 
 // EnumUtils: DESCRIBE THIS
 enum SpellAttr3 : uint32
 {
     SPELL_ATTR3_UNK0                             = 0x00000001, // TITLE Unknown attribute 0@Attr3
+                                                               // 未知属性位。用途尚未明确，可能为客户端或旧版本遗留标志。
+
     SPELL_ATTR3_IGNORE_PROC_SUBCLASS_MASK        = 0x00000002, //  1 Ignores subclass mask check when checking proc
+                                                               // 触发（proc）时忽略子类掩码校验。允许该法术在不匹配子类别条件时仍然触发相关 proc。
+
     SPELL_ATTR3_UNK2                             = 0x00000004, // TITLE Unknown attribute 2@Attr3
+                                                               // 未知属性位。未发现明确的服务器逻辑用途。
+
     SPELL_ATTR3_COMPLETELY_BLOCKED               = 0x00000008, // TITLE Completely Blocked
+                                                               // 完全被格挡。该法术的伤害可被判定为“完全格挡”，通常与盾牌或特殊防御机制相关。
+
     SPELL_ATTR3_IGNORE_RESURRECTION_TIMER        = 0x00000010, // TITLE Ignore resurrection timer
+                                                               // 忽略复活冷却时间。允许目标在未到复活等待时间时被复活。
+
     SPELL_ATTR3_UNK5                             = 0x00000020, // TITLE Unknown attribute 5@Attr3
+                                                               // 未知属性位。可能为占位或已废弃功能。
+
     SPELL_ATTR3_UNK6                             = 0x00000040, // TITLE Unknown attribute 6@Attr3
+                                                               // 未知属性位。当前未确认实际作用。
+
     SPELL_ATTR3_STACK_FOR_DIFF_CASTERS           = 0x00000080, // TITLE Stack separately for each caster
+                                                               // 不同施法者分别叠加。同一光环来自不同施法者时不会互相覆盖，而是各自独立存在。
+
     SPELL_ATTR3_ONLY_TARGET_PLAYERS              = 0x00000100, // TITLE Can only target players
+                                                               // 只能以玩家为目标。无法对 NPC、怪物或召唤物施放。
+
     SPELL_ATTR3_NOT_A_PROC                       = 0x00000200, // TITLE Not a Proc DESCRIPTION Without this attribute, any triggered spell will be unable to trigger other auras' procs
+                                                               // 该技能本身不被视为一次 proc。若没有此标志，触发型法术将无法再次触发其他光环的 proc 效果。
+
     SPELL_ATTR3_MAIN_HAND                        = 0x00000400, // TITLE Require main hand weapon
+                                                               // 需要主手武器。施法前会校验主手是否装备有效武器。
+
     SPELL_ATTR3_BATTLEGROUND                     = 0x00000800, // TITLE Can only be cast in battleground
+                                                               // 只能在战场中施放。离开战场环境后该技能不可用。
+
     SPELL_ATTR3_ONLY_TARGET_GHOSTS               = 0x00001000, // TITLE Can only target ghost players
+                                                               // 只能以幽灵状态玩家为目标。常用于复活、复生或墓地相关技能。
+
     SPELL_ATTR3_DONT_DISPLAY_CHANNEL_BAR         = 0x00002000, // TITLE Do not display channel bar (client only)
+                                                               // 不显示引导进度条。客户端隐藏该技能的引导条UI。
+
     SPELL_ATTR3_IS_HONORLESS_TARGET              = 0x00004000, // TITLE Honorless Target
+                                                               // 荣誉无效目标。用于 PvP 中标记不会产生荣誉收益的目标。
+
     SPELL_ATTR3_UNK15                            = 0x00008000, // TITLE Unknown attribute 15@Attr3 DESCRIPTION Auto Shoot, Shoot, Throw - ranged normal attack attribute?
+                                                               // 疑似远程普通攻击相关标志。常与自动射击、投掷等技能共现。
+
     SPELL_ATTR3_CANT_TRIGGER_PROC                = 0x00010000, // TITLE Cannot trigger procs
+                                                               // 不能触发任何 proc 效果。该技能的命中或效果不会触发天赋或光环的触发逻辑。
+
     SPELL_ATTR3_NO_INITIAL_AGGRO                 = 0x00020000, // TITLE No initial aggro
+                                                               // 不会产生初始仇恨。首次作用不会立即引发目标进入攻击状态。
+
     SPELL_ATTR3_IGNORE_HIT_RESULT                = 0x00040000, // TITLE Ignore hit result DESCRIPTION Spell cannot miss, or be dodged/parried/blocked
+                                                               // 忽略命中判定结果。该法术不会出现未命中、闪避、招架或格挡等结果。
+
     SPELL_ATTR3_DISABLE_PROC                     = 0x00080000, // TITLE Cannot trigger spells during aura proc
+                                                               // 在光环 proc 期间禁止再次触发技能。用于防止递归或连锁触发。
+
     SPELL_ATTR3_DEATH_PERSISTENT                 = 0x00100000, // TITLE Persists through death
+                                                               // 死亡后仍然保留。角色死亡不会移除该光环或效果。
+
     SPELL_ATTR3_UNK21                            = 0x00200000, // TITLE Unknown attribute 21@Attr3
+                                                               // 未知属性位。未确认实际用途。
+
     SPELL_ATTR3_REQ_WAND                         = 0x00400000, // TITLE Requires equipped Wand
+                                                               // 需要装备魔杖。常用于法师/术士的魔杖射击类技能。
+
     SPELL_ATTR3_UNK23                            = 0x00800000, // TITLE Unknown attribute 23@Attr3
+                                                               // 未知属性位。可能与特定客户端行为相关。
+
     SPELL_ATTR3_REQ_OFFHAND                      = 0x01000000, // TITLE Requires offhand weapon
+                                                               // 需要副手武器。施法前必须在副手槽装备有效武器。
+
     SPELL_ATTR3_TREAT_AS_PERIODIC                = 0x02000000, // TITLE Treat as periodic effect
+                                                               // 按周期性效果处理。即使不是传统 DOT，也会按周期效果逻辑结算。
+
     SPELL_ATTR3_CAN_PROC_FROM_PROCS              = 0x04000000, // TITLE Can Proc From Procs
+                                                               // 允许由 proc 再次触发 proc。打破默认“proc 不触发 proc”的限制。
+
     SPELL_ATTR3_DRAIN_SOUL                       = 0x08000000, // TITLE Drain Soul
+                                                               // 灵魂吸取技能标记。用于术士灵魂碎片生成及相关特殊结算逻辑。
+
     SPELL_ATTR3_UNK28                            = 0x10000000, // TITLE Unknown attribute 28@Attr3
+                                                               // 未知属性位。用途未明确。
+
     SPELL_ATTR3_NO_DONE_BONUS                    = 0x20000000, // TITLE Damage dealt is unaffected by modifiers
+                                                               // 伤害不受加成修正。不会受到伤害提高、易伤等系数影响。
+
     SPELL_ATTR3_DONT_DISPLAY_RANGE               = 0x40000000, // TITLE Do not show range in tooltip (client only)
+                                                               // 技能提示中不显示距离。客户端 UI 纯显示控制。
+
     SPELL_ATTR3_UNK31                            = 0x80000000  // TITLE Unknown attribute 31@Attr3
+                                                               // 未知属性位。最高位标志，可能为扩展或保留用途。
 };
 
 // EnumUtils: DESCRIBE THIS
 enum SpellAttr4 : uint32
 {
     SPELL_ATTR4_IGNORE_RESISTANCES               = 0x00000001, // TITLE Cannot be resisted
+                                                               // 无视抗性判定。该法术不会被目标的魔法抗性所抵抗，结算时直接命中生效。
+
     SPELL_ATTR4_PROC_ONLY_ON_CASTER              = 0x00000002, // TITLE Only proc on self-cast
+                                                               // 仅在自身施法时才触发 proc。由他人或其他来源触发时不会激活相关触发效果。
+
     SPELL_ATTR4_FADES_WHILE_LOGGED_OUT           = 0x00000004, // TITLE Buff expires while offline DESCRIPTION Debuffs (except Resurrection Sickness) will automatically do this
+                                                               // 离线期间持续时间仍然流逝。玩家下线后该增益会继续倒计时，重新上线可能已经过期。
+
     SPELL_ATTR4_UNK3                             = 0x00000008, // TITLE Unknown attribute 3@Attr4
+                                                               // 未知属性位。用途不明，可能为历史版本遗留或客户端内部逻辑。
+
     SPELL_ATTR4_UNK4                             = 0x00000010, // TITLE Treat as delayed spell
+                                                               // 按延迟型法术处理。可能用于延迟结算、延迟触发效果的特殊技能。
+
     SPELL_ATTR4_UNK5                             = 0x00000020, // TITLE Unknown attribute 5@Attr4
+                                                               // 未知属性位。当前未发现明确服务器行为关联。
+
     SPELL_ATTR4_NOT_STEALABLE                    = 0x00000040, // TITLE Aura cannot be stolen
+                                                               // 光环不可被偷取。无法被法术偷取类技能（如法术吸取、法术偷取）移除或转移。
+
     SPELL_ATTR4_CAN_CAST_WHILE_CASTING           = 0x00000080, // TITLE Can be cast while casting DESCRIPTION Ignores already in-progress cast and still casts
+                                                               // 可在施法过程中施放。不会打断或受当前正在进行的施法影响，常用于瞬发技能。
+
     SPELL_ATTR4_FIXED_DAMAGE                     = 0x00000100, // TITLE Deals fixed damage
+                                                               // 固定伤害。伤害数值不随攻击强度、法术强度或其他系数缩放。
+
     SPELL_ATTR4_TRIGGER_ACTIVATE                 = 0x00000200, // TITLE Spell is initially disabled (client only)
+                                                               // 初始为禁用状态（客户端）。通常需要通过触发条件或事件激活后才能使用。
+
     SPELL_ATTR4_SPELL_VS_EXTEND_COST             = 0x00000400, // TITLE Attack speed modifies cost DESCRIPTION Adds 10 to power cost for each 1s of weapon speed
+                                                               // 消耗随武器速度变化。武器速度越慢，技能消耗的能量/怒气等越高。
+
     SPELL_ATTR4_UNK11                            = 0x00000800, // TITLE Unknown attribute 11@Attr4
+                                                               // 未知属性位。尚未发现具体用途。
+
     SPELL_ATTR4_UNK12                            = 0x00001000, // TITLE Unknown attribute 12@Attr4
+                                                               // 未知属性位。可能仅影响客户端表现。
+
     SPELL_ATTR4_UNK13                            = 0x00002000, // TITLE Unknown attribute 13@Attr4
+                                                               // 未知属性位。用途未确认。
+
     SPELL_ATTR4_DAMAGE_DOESNT_BREAK_AURAS        = 0x00004000, // TITLE Damage does not break auras
+                                                               // 造成伤害不会打断光环。即使受到伤害，某些易碎或需保持的光环仍然保留。
+
     SPELL_ATTR4_UNK15                            = 0x00008000, // TITLE Unknown attribute 15@Attr4
+                                                               // 未知属性位。未发现明确逻辑关联。
+
     SPELL_ATTR4_NOT_USABLE_IN_ARENA              = 0x00010000, // TITLE Not usable in arena DESCRIPTION Makes spell unusable despite CD <= 10min
+                                                               // 竞技场中不可使用。即使冷却时间满足竞技场规则，也强制禁用。
+
     SPELL_ATTR4_USABLE_IN_ARENA                  = 0x00020000, // TITLE Usable in arena DESCRIPTION Makes spell usable despite CD > 10min
+                                                               // 竞技场中允许使用。即使冷却时间超过竞技场默认限制，仍可施放。
+
     SPELL_ATTR4_AREA_TARGET_CHAIN                = 0x00040000, // TITLE Chain area targets DESCRIPTION [NYI] Hits area targets over time instead of all at once
+                                                               // 区域目标链式命中（未实现）。设计上用于区域目标分批或链式命中。
+
     SPELL_ATTR4_UNK19                            = 0x00080000, // TITLE Unknown attribute 19@Attr4
+                                                               // 未知属性位。用途尚未明确。
+
     SPELL_ATTR4_NOT_CHECK_SELFCAST_POWER         = 0x00100000, // TITLE Allow self-cast to override stronger aura (client only)
+                                                               // 自施放时不检查能量与光环强度。允许用自身施法覆盖更强的同类光环（客户端逻辑）。
+
     SPELL_ATTR4_DONT_REMOVE_IN_ARENA             = 0x00200000, // TITLE Keep when entering arena
+                                                               // 进入竞技场时不移除。通常用于允许部分增益在竞技场中保留。
+
     SPELL_ATTR4_UNK22                            = 0x00400000, // TITLE Unknown attribute 22@Attr4
+                                                               // 未知属性位。当前无明确用途说明。
+
     SPELL_ATTR4_CANT_TRIGGER_ITEM_SPELLS         = 0x00800000, // TITLE Cannot trigger item spells
+                                                               // 不能触发物品法术。该技能不会触发装备或物品附带的法术效果。
+
     SPELL_ATTR4_UNK24                            = 0x01000000, // TITLE Unknown attribute 24@Attr4 DESCRIPTION Shoot-type spell?
+                                                               // 疑似射击类法术相关标志。常与远程普通攻击技能数据共现。
+
     SPELL_ATTR4_IS_PET_SCALING                   = 0x02000000, // TITLE Pet Scaling aura
+                                                               // 宠物属性缩放光环。用于根据主人属性动态调整宠物属性。
+
     SPELL_ATTR4_CAST_ONLY_IN_OUTLAND             = 0x04000000, // TITLE Only in Outland/Northrend
+                                                               // 仅能在外域或诺森德施放。用于限制技能在特定资料片区域使用。
+
     SPELL_ATTR4_FORCE_DISPLAY_CASTBAR            = 0x08000000, // TITLE Force Display Castbar
+                                                               // 强制显示施法条。即使是瞬发或特殊技能，也会显示施法进度条。
+
     SPELL_ATTR4_UNK28                            = 0x10000000, // TITLE Unknown attribute 28@Attr4
+                                                               // 未知属性位。用途未确认。
+
     SPELL_ATTR4_UNK29                            = 0x20000000, // TITLE Unknown attribute 29@Attr4
+                                                               // 未知属性位。可能为客户端或未来扩展预留。
+
     SPELL_ATTR4_UNK30                            = 0x40000000, // TITLE Unknown attribute 30@Attr4
+                                                               // 未知属性位。尚无明确行为定义。
+
     SPELL_ATTR4_UNK31                            = 0x80000000  // TITLE Unknown attribute 31@Attr4
+                                                               // 未知属性位。最高位标志，通常为保留或内部用途。
 };
 
 // EnumUtils: DESCRIBE THIS
+
 enum SpellAttr5 : uint32
 {
     SPELL_ATTR5_CAN_CHANNEL_WHEN_MOVING          = 0x00000001, // TITLE Can be channeled while moving
+                                                               // 引导期间允许移动。通常引导法术会因移动而中断，此标志允许边走边保持引导。
+
     SPELL_ATTR5_NO_REAGENT_WHILE_PREP            = 0x00000002, // TITLE No reagents during arena preparation
+                                                               // 竞技场准备阶段不消耗材料。用于竞技场开场倒计时阶段的施法测试/预上 buff。
+
     SPELL_ATTR5_REMOVE_ON_ARENA_ENTER            = 0x00000004, // TITLE Remove when entering arena DESCRIPTION Force this aura to be removed on entering arena, regardless of other properties
+                                                               // 进入竞技场时强制移除该光环。无视“可在竞技场保留”等其他规则，进场即清除。
+
     SPELL_ATTR5_USABLE_WHILE_STUNNED             = 0x00000008, // TITLE Usable while stunned
+                                                               // 眩晕状态可用。绕过“眩晕禁止施法”的通用限制，常用于饰品解控或特殊反制技能。
+
     SPELL_ATTR5_UNK4                             = 0x00000010, // TITLE Unknown attribute 4@Attr5
+                                                               // 未知属性位。用途尚未确认，可能为客户端或旧机制残留。
+
     SPELL_ATTR5_SINGLE_TARGET_SPELL              = 0x00000020, // TITLE Single-target aura DESCRIPTION Remove previous application to another unit if applied
+                                                               // 单目标光环（唯一目标）。同一施法者把该光环转移给新目标时，会自动移除旧目标上的同类光环（类似“只能维持一个目标”的持续效果）。
+
     SPELL_ATTR5_UNK6                             = 0x00000040, // TITLE Unknown attribute 6@Attr5
+                                                               // 未知属性位。当前未发现明确行为差异。
+
     SPELL_ATTR5_UNK7                             = 0x00000080, // TITLE Unknown attribute 7@Attr5
+                                                               // 未知属性位。可能只对特定法术数据生效或已废弃。
+
     SPELL_ATTR5_CANT_TARGET_PLAYER_CONTROLLED    = 0x00000100, // TITLE Cannot target player controlled units but can target players
+                                                               // 不能选中“玩家控制的单位”，但可以选中玩家本体。比如不能对被玩家操控的宠物/载具/魅惑单位生效。
+
     SPELL_ATTR5_START_PERIODIC_AT_APPLY          = 0x00000200, // TITLE Immediately do periodic tick on apply
+                                                               // 应用时立刻触发一次周期跳（tick）。用于 DOT/HOT 在刚挂上时马上结算一跳，而不是等到下一个周期点。
+
     SPELL_ATTR5_HIDE_DURATION                    = 0x00000400, // TITLE Do not send aura duration to client
+                                                               // 不向客户端同步光环持续时间。客户端可能显示为“无时间/未知时间”，常用于隐藏机制或动态时长效果。
+
     SPELL_ATTR5_ALLOW_TARGET_OF_TARGET_AS_TARGET = 0x00000800, // TITLE Auto-target target of target (client only)
+                                                               // 自动以“目标的目标”为施法目标（客户端）。例如你选中友方坦克时，技能自动指向坦克当前仇恨的敌人。
+
     SPELL_ATTR5_UNK12                            = 0x00001000, // TITLE Unknown attribute 12@Attr5 DESCRIPTION Cleave related?
+                                                               // 未知属性位，疑似与顺劈/劈砍类多目标命中逻辑有关（数据上可能与 cleave 类技能共现）。
+
     SPELL_ATTR5_HASTE_AFFECT_DURATION            = 0x00002000, // TITLE Duration scales with Haste Rating
+                                                               // 持续时间受急速影响。急速属性会改变该光环/效果的总持续时长（区别于“急速改变跳频”那种机制）。
+
     SPELL_ATTR5_NOT_USABLE_WHILE_CHARMED         = 0x00004000, // TITLE Charmed units cannot cast this spell
+                                                               // 被魅惑/控制时不可用。即使处于可施法状态，也禁止在被控期间释放该技能（防止反制或逃脱）。
+
     SPELL_ATTR5_UNK15                            = 0x00008000, // TITLE Unknown attribute 15@Attr5 DESCRIPTION Related to multi-target spells?
+                                                               // 未知属性位，疑似与多目标法术的目标选择/命中规则相关（如链式/溅射/多重目标校验）。
+
     SPELL_ATTR5_UNK16                            = 0x00010000, // TITLE Unknown attribute 16@Attr5
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR5_USABLE_WHILE_FEARED              = 0x00020000, // TITLE Usable while feared
+                                                               // 恐惧状态可用。允许在恐惧中施放，通常用于解控、保命或极少数特殊技能。
+
     SPELL_ATTR5_USABLE_WHILE_CONFUSED            = 0x00040000, // TITLE Usable while confused
+                                                               // 混乱状态可用。允许在混乱（方向错乱/不可控移动）时施放的例外技能。
+
     SPELL_ATTR5_DONT_TURN_DURING_CAST            = 0x00080000, // TITLE Do not auto-turn while casting
+                                                               // 施法时不自动转向。即使目标移动或朝向不足，也不触发自动面向行为（常用于固定朝向/定向读条技能）。
+
     SPELL_ATTR5_UNK20                            = 0x00100000, // TITLE Unknown attribute 20@Attr5
+                                                               // 未知属性位。暂未确认用途。
+
     SPELL_ATTR5_UNK21                            = 0x00200000, // TITLE Unknown attribute 21@Attr5
+                                                               // 未知属性位。可能与某些条件施法限制相关。
+
     SPELL_ATTR5_UNK22                            = 0x00400000, // TITLE Unknown attribute 22@Attr5
+                                                               // 未知属性位。当前无明确行为定义。
+
     SPELL_ATTR5_UNK23                            = 0x00800000, // TITLE Unknown attribute 23@Attr5
+                                                               // 未知属性位。可能仅对客户端提示或内部状态有意义。
+
     SPELL_ATTR5_UNK24                            = 0x01000000, // TITLE Unknown attribute 24@Attr5
+                                                               // 未知属性位。用途未明确。
+
     SPELL_ATTR5_UNK25                            = 0x02000000, // TITLE Unknown attribute 25@Attr5
+                                                               // 未知属性位。用途未明确。
+
     SPELL_ATTR5_SKIP_CHECKCAST_LOS_CHECK         = 0x04000000, // TITLE Ignore line of sight checks
+                                                               // 跳过 CheckCast 阶段的视线检测。与 Attr2 的“忽略 LOS”类似，但更偏向“施法前校验”层面的绕过（常用于脚本/触发型技能）。
+
     SPELL_ATTR5_DONT_SHOW_AURA_IF_SELF_CAST      = 0x08000000, // TITLE Don't show aura if self-cast (client only)
+                                                               // 若由自己施放，则不显示该光环（客户端）。效果仍存在，仅隐藏 UI 显示以减少干扰或避免暴露机制。
+
     SPELL_ATTR5_DONT_SHOW_AURA_IF_NOT_SELF_CAST  = 0x10000000, // TITLE Don't show aura unless self-cast (client only)
+                                                               // 仅在自己施放时才显示光环（客户端）。他人施放在你身上时 UI 不显示，但服务器效果仍生效。
+
     SPELL_ATTR5_UNK29                            = 0x20000000, // TITLE Unknown attribute 29@Attr5
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR5_UNK30                            = 0x40000000, // TITLE Unknown attribute 30@Attr5
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR5_UNK31                            = 0x80000000  // TITLE Unknown attribute 31@Attr5 DESCRIPTION Forces nearby enemies to attack caster?
+                                                               // 未知属性位，疑似带有“嘲讽/强制周围敌人攻击施法者”的语义（从描述推测），可能与脚本或特殊仇恨机制相关。
 };
 
+
 // EnumUtils: DESCRIBE THIS
+
 enum SpellAttr6 : uint32
 {
     SPELL_ATTR6_DONT_DISPLAY_COOLDOWN            = 0x00000001, // TITLE Don't display cooldown (client only)
+                                                               // 不在客户端显示冷却时间。技能仍然有冷却，只是 UI 上不显示，用于隐藏机制或被动/触发型技能。
+
     SPELL_ATTR6_ONLY_IN_ARENA                    = 0x00000002, // TITLE Only usable in arena
+                                                               // 只能在竞技场中使用。离开竞技场环境后该技能不可施放。
+
     SPELL_ATTR6_IGNORE_CASTER_AURAS              = 0x00000004, // TITLE Ignore all preventing caster auras
+                                                               // 忽略施法者身上的“禁止施法”类光环。即使存在沉默、限制施法的光环，仍允许施放该技能。
+
     SPELL_ATTR6_ASSIST_IGNORE_IMMUNE_FLAG        = 0x00000008, // TITLE Ignore immunity flags when assisting
+                                                               // 协助型施法时忽略免疫标志。用于治疗/辅助技能在目标标记为免疫时仍可正常作用。
+
     SPELL_ATTR6_UNK4                             = 0x00000010, // TITLE Unknown attribute 4@Attr6
+                                                               // 未知属性位。用途尚未明确。
+
     SPELL_ATTR6_DONT_CONSUME_PROC_CHARGES        = 0x00000020, // TITLE Don't consume proc charges
+                                                               // 触发时不消耗 proc 次数。该技能触发相关光环效果，但不会减少其剩余触发层数/次数。
+
     SPELL_ATTR6_USE_SPELL_CAST_EVENT             = 0x00000040, // TITLE Generate spell_cast event instead of aura_start (client only)
+                                                               // 使用 spell_cast 事件而非 aura_start（客户端）。影响客户端事件流与 UI 表现。
+
     SPELL_ATTR6_UNK7                             = 0x00000080, // TITLE Unknown attribute 7@Attr6
+                                                               // 未知属性位。可能为客户端或历史机制残留。
+
     SPELL_ATTR6_CANT_TARGET_CROWD_CONTROLLED     = 0x00000100, // TITLE Do not implicitly target in CC DESCRIPTION Implicit targeting (chaining and area targeting) will not impact crowd controlled targets
+                                                               // 隐式目标选择时跳过被控制目标。链式/范围技能不会自动命中被恐惧、变形、昏迷等 CC 状态的单位。
+
     SPELL_ATTR6_UNK9                             = 0x00000200, // TITLE Unknown attribute 9@Attr6
+                                                               // 未知属性位。用途未确认。
+
     SPELL_ATTR6_CAN_TARGET_POSSESSED_FRIENDS     = 0x00000400, // TITLE Can target possessed friends DESCRIPTION [NYI]
+                                                               // 可以选中被附身/控制的友方单位。当前标注为未实现（NYI），逻辑可能尚未完整接入。
+
     SPELL_ATTR6_NOT_IN_RAID_INSTANCE             = 0x00000800, // TITLE Unusable in raid instances
+                                                               // 在团队副本中不可使用。进入 raid instance 后该技能被禁用。
+
     SPELL_ATTR6_CASTABLE_WHILE_ON_VEHICLE        = 0x00001000, // TITLE Castable while caster is on vehicle
+                                                               // 乘坐载具时可施放。绕过“上载具禁止施法”的默认限制。
+
     SPELL_ATTR6_CAN_TARGET_INVISIBLE             = 0x00002000, // TITLE Can target invisible units
+                                                               // 可以选中隐形单位。忽略目标的隐形状态，用于反隐、侦测或特殊机制技能。
+
     SPELL_ATTR6_UNK14                            = 0x00004000, // TITLE Unknown attribute 14@Attr6
+                                                               // 未知属性位。用途尚不明确。
+
     SPELL_ATTR6_UNK15                            = 0x00008000, // TITLE Unknown attribute 15@Attr6
+                                                               // 未知属性位。可能与特殊施法条件有关。
+
     SPELL_ATTR6_UNK16                            = 0x00010000, // TITLE Unknown attribute 16@Attr6
+                                                               // 未知属性位。当前无明确行为。
+
     SPELL_ATTR6_UNK17                            = 0x00020000, // TITLE Unknown attribute 17@Attr6 DESCRIPTION Mount related?
+                                                               // 疑似与坐骑相关的属性标志。可能用于限制或放行某些骑乘状态下的技能。
+
     SPELL_ATTR6_CAST_BY_CHARMER                  = 0x00040000, // TITLE Spell is cast by charmer DESCRIPTION Client will prevent casting if not possessed, charmer will be caster for all intents and purposes
+                                                               // 由控制者（魅惑者）施放。客户端仅在被控制状态下允许施法，且所有归属（仇恨、日志等）视为控制者。
+
     SPELL_ATTR6_UNK19                            = 0x00080000, // TITLE Unknown attribute 19@Attr6
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR6_ONLY_VISIBLE_TO_CASTER           = 0x00100000, // TITLE Only visible to caster (client only)
+                                                               // 仅对施法者可见。客户端中其他玩家无法看到该技能或光环的显示效果。
+
     SPELL_ATTR6_CLIENT_UI_TARGET_EFFECTS         = 0x00200000, // TITLE Client UI target effects (client only)
+                                                               // 客户端目标 UI 特效标志。用于显示特殊指示、边框或选中效果。
+
     SPELL_ATTR6_UNK22                            = 0x00400000, // TITLE Unknown attribute 22@Attr6
+                                                               // 未知属性位。尚未确认用途。
+
     SPELL_ATTR6_UNK23                            = 0x00800000, // TITLE Unknown attribute 23@Attr6
+                                                               // 未知属性位。用途未明确。
+
     SPELL_ATTR6_CAN_TARGET_UNTARGETABLE          = 0x01000000, // TITLE Can target untargetable units
+                                                               // 可以选中“不可选中”的单位。绕过常规 targetable 检查（如剧情单位、特殊状态单位）。
+
     SPELL_ATTR6_NOT_RESET_SWING_IF_INSTANT       = 0x02000000, // TITLE Do not reset swing timer if cast time is instant
+                                                               // 瞬发施法不重置普攻计时器。避免技能打断近战/远程自动攻击节奏。
+
     SPELL_ATTR6_UNK26                            = 0x04000000, // TITLE Unknown attribute 26@Attr6 DESCRIPTION Player castable buff?
+                                                               // 未知属性位，疑似与“玩家可施放的增益类法术”相关（根据数据共现推测）。
+
     SPELL_ATTR6_LIMIT_PCT_HEALING_MODS           = 0x08000000, // TITLE Limit applicable %healing modifiers DESCRIPTION This prevents certain healing modifiers from applying - see implementation if you really care about details
+                                                               // 限制百分比治疗加成。部分治疗增益/减益系数不会作用于该技能，防止数值被过度放大。
+
     SPELL_ATTR6_UNK28                            = 0x10000000, // TITLE Unknown attribute 28@Attr6 DESCRIPTION Death grip?
+                                                               // 未知属性位，疑似与“死亡之握”等强制位移/牵引类技能有关（推测）。
+
     SPELL_ATTR6_LIMIT_PCT_DAMAGE_MODS            = 0x20000000, // TITLE Limit applicable %damage modifiers DESCRIPTION This prevents certain damage modifiers from applying - see implementation if you really care about details
+                                                               // 限制百分比伤害加成。部分伤害增益/减益不会作用于该技能，用于精确控制数值结算。
+
     SPELL_ATTR6_UNK30                            = 0x40000000, // TITLE Unknown attribute 30@Attr6
+                                                               // 未知属性位。用途尚未明确。
+
     SPELL_ATTR6_IGNORE_CATEGORY_COOLDOWN_MODS    = 0x80000000  // TITLE Ignore cooldown modifiers for category cooldown
+                                                               // 忽略技能类别冷却修正。天赋或光环对“分类冷却”的缩短/延长不会影响该技能。
 };
 
+
 // EnumUtils: DESCRIBE THIS
+
 enum SpellAttr7 : uint32
 {
     SPELL_ATTR7_UNK0                             = 0x00000001, // TITLE Unknown attribute 0@Attr7
+                                                               // 未知属性位。用途尚未明确，可能为内部或历史遗留标志。
+
     SPELL_ATTR7_IGNORE_DURATION_MODS             = 0x00000002, // TITLE Ignore duration modifiers
+                                                               // 忽略持续时间修正。急速、天赋、光环等对持续时间的增减不会影响该法术。
+
     SPELL_ATTR7_DISABLE_AURA_WHILE_DEAD          = 0x00000004, // TITLE Disable Aura While Dead
+                                                               // 死亡状态下禁用光环。角色死亡后该光环不生效（可能不移除，但不参与结算）。
+
     SPELL_ATTR7_IS_CHEAT_SPELL                   = 0x00000008, // TITLE Is cheat spell DESCRIPTION Cannot cast if caster doesn't have UnitFlag2 & UNIT_FLAG2_ALLOW_CHEAT_SPELLS
+                                                               // 作弊/GM 法术标记。只有具备允许作弊施法标志的单位（如 GM）才能施放。
+
     SPELL_ATTR7_UNK4                             = 0x00000010, // TITLE Unknown attribute 4@Attr7 DESCRIPTION Soulstone related?
+                                                               // 未知属性位，疑似与灵魂石或死亡后触发类机制相关（推测）。
+
     SPELL_ATTR7_SUMMON_PLAYER_TOTEM              = 0x00000020, // TITLE Summons player-owned totem
+                                                               // 召唤玩家所属的图腾。图腾的归属、仇恨与控制权视为施法玩家。
+
     SPELL_ATTR7_NO_PUSHBACK_ON_DAMAGE            = 0x00000040, // TITLE Damage dealt by this does not cause spell pushback
+                                                               // 该技能造成的伤害不会引起施法回退。被命中的目标在读条时不会因这次伤害而延长施法时间。
+
     SPELL_ATTR7_UNK7                             = 0x00000080, // TITLE Unknown attribute 7@Attr7
+                                                               // 未知属性位。用途尚未确认。
+
     SPELL_ATTR7_HORDE_ONLY                       = 0x00000100, // TITLE Horde only
+                                                               // 部落专用技能。联盟角色无法施放或使用。
+
     SPELL_ATTR7_ALLIANCE_ONLY                    = 0x00000200, // TITLE Alliance only
+                                                               // 联盟专用技能。部落角色无法施放或使用。
+
     SPELL_ATTR7_DISPEL_CHARGES                   = 0x00000400, // TITLE Dispel/Spellsteal remove individual charges
+                                                               // 驱散/偷取时按“单层”处理。每次只移除一个充能层，而不是整个光环。
+
     SPELL_ATTR7_INTERRUPT_ONLY_NONPLAYER         = 0x00000800, // TITLE Only interrupt non-player casting
+                                                               // 仅能打断非玩家单位的施法。对玩家施法不会产生打断效果。
+
     SPELL_ATTR7_UNK12                            = 0x00001000, // TITLE Unknown attribute 12@Attr7
+                                                               // 未知属性位。用途未明确。
+
     SPELL_ATTR7_UNK13                            = 0x00002000, // TITLE Unknown attribute 13@Attr7
+                                                               // 未知属性位。用途未明确。
+
     SPELL_ATTR7_UNK14                            = 0x00004000, // TITLE Unknown attribute 14@Attr7
+                                                               // 未知属性位。可能为特定技能数据占位。
+
     SPELL_ATTR7_UNK15                            = 0x00008000, // TITLE Unknown attribute 15@Attr7 DESCRIPTION Exorcism - guaranteed crit vs families?
+                                                               // 未知属性位，疑似与“对特定生物家族必定暴击”相关（如驱邪术历史行为，推测）。
+
     SPELL_ATTR7_CAN_RESTORE_SECONDARY_POWER      = 0x00010000, // TITLE Can restore secondary power DESCRIPTION Only spells with this attribute can replenish a non-active power type
+                                                               // 可以恢复次要能量类型。允许回复当前未激活的能量资源（如非主资源的能量/怒气/法力）。
+
     SPELL_ATTR7_UNK17                            = 0x00020000, // TITLE Unknown attribute 17@Attr7
+                                                               // 未知属性位。用途尚未确认。
+
     SPELL_ATTR7_HAS_CHARGE_EFFECT                = 0x00040000, // TITLE Has charge effect
+                                                               // 具有冲锋/位移效果。通常伴随快速位移到目标位置或目标身边的行为。
+
     SPELL_ATTR7_ZONE_TELEPORT                    = 0x00080000, // TITLE Is zone teleport
+                                                               // 区域/地图传送技能。用于跨区域或副本切换的传送法术。
+
     SPELL_ATTR7_UNK20                            = 0x00100000, // TITLE Unknown attribute 20@Attr7 DESCRIPTION Invulnerability related?
+                                                               // 未知属性位，疑似与无敌或免疫类机制相关（推测）。
+
     SPELL_ATTR7_UNK21                            = 0x00200000, // TITLE Unknown attribute 21@Attr7
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR7_IGNORE_COLD_WEATHER_FLYING       = 0x00400000, // TITLE Ignore cold weather flying restriction DESCRIPTION Set for loaner mounts, allows them to be used despite lacking required flight skill
+                                                               // 忽略寒冷天气飞行限制。常用于临时坐骑，即使角色未学习寒冷飞行也可使用。
+
     SPELL_ATTR7_CANT_DODGE                       = 0x00800000, // TITLE Spell cannot be dodged
+                                                               // 该法术无法被闪避。命中判定中跳过“闪避”结果。
+
     SPELL_ATTR7_CANT_PARRY                       = 0x01000000, // TITLE Spell cannot be parried
+                                                               // 该法术无法被招架。命中判定中跳过“招架”结果。
+
     SPELL_ATTR7_CANT_MISS                        = 0x02000000, // TITLE Spell cannot be missed
+                                                               // 该法术不会未命中。直接视为命中目标（仍可能受其他规则影响）。
+
     SPELL_ATTR7_UNK26                            = 0x04000000, // TITLE Unknown attribute 26@Attr7
+                                                               // 未知属性位。用途未明确。
+
     SPELL_ATTR7_BYPASS_NO_RESURRECT_AURA         = 0x08000000, // TITLE Bypasses the prevent resurrection aura
+                                                               // 绕过“禁止复活”光环。即使目标身上存在禁止复活的状态，也允许复活成功。
+
     SPELL_ATTR7_CONSOLIDATED_RAID_BUFF           = 0x10000000, // TITLE Consolidate in raid buff frame (client only)
+                                                               // 在团队增益框中合并显示。客户端 UI 用于将多个同类团队 Buff 折叠显示。
+
     SPELL_ATTR7_UNK29                            = 0x20000000, // TITLE Unknown attribute 29@Attr7
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR7_UNK30                            = 0x40000000, // TITLE Unknown attribute 30@Attr7
+                                                               // 未知属性位。用途不明。
+
     SPELL_ATTR7_CLIENT_INDICATOR                 = 0x80000000  // TITLE Client indicator (client only)
+                                                               // 客户端指示器标记。用于显示特殊 UI 提示、光效或指向性指示，不影响服务器逻辑。
 };
+
 
 #define MIN_TALENT_SPEC         0
 #define MAX_TALENT_SPEC         1

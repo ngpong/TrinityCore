@@ -2841,7 +2841,7 @@ bool WorldObject::IsNeutralToAll() const
 
 SpellCastResult WorldObject::CastSpell(CastSpellTargetArg const& targets, uint32 spellId, CastSpellExtraArgs const& args /*= { }*/)
 {
-    TC_LOG_INFO("ngpong", "WorldObject::CastSpell: {}", boost::stacktrace::to_string(boost::stacktrace::stacktrace()));
+    // TC_LOG_INFO("neil", "WorldObject::CastSpell: {}", boost::stacktrace::to_string(boost::stacktrace::stacktrace()));
 
     SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
     if (!info)

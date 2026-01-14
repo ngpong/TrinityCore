@@ -3147,7 +3147,8 @@ float SpellInfo::GetMaxRange(bool positive /*= false*/, WorldObject* caster /*= 
     else
         range = RangeEntry->RangeMax[0];
 
-    // 可能法术会存在修改者（即玩家），则尝试应用任何影响施法范围的法术修改器
+    // 可能法术范围可能会存在修改者（即玩家）（例如拥有一些光环或者药水增加了法术范围）；
+    // 则尝试应用任何影响施法范围的法术修改器
     if (caster)
         if (Player* modOwner = caster->GetSpellModOwner())
             modOwner->ApplySpellMod(Id, SPELLMOD_RANGE, range, spell);

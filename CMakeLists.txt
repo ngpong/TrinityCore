@@ -11,7 +11,7 @@
 # 安装路径: -DCMAKE_INSTALL_PREFIX=/home/ngpong/TrinityCore/env/
 # 构建服务: -DSERVERS=ON
 # 构建工具: -DTOOLS=ON
-# 脚本编译类型: -DSCRIPTS=dynamic
+# 脚本编译类型: -DSCRIPTS=dynamic/static
 # 安装时拷贝配置文件到目录: -DCOPY_CONF=ON
 # 核心是否使用PCH: -DUSE_COREPCH=ON
 # 脚本是否使用PCH: -DUSE_SCRIPTPCH=ON

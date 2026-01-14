@@ -507,10 +507,13 @@ void ObjectMgr::LoadCreatureTemplates()
     do
     {
         Field* fields = result->Fetch();
+        // 加载生物模板
         LoadCreatureTemplate(fields);
     } while (result->NextRow());
 
+    // 加载生物法术抗性模板
     LoadCreatureTemplateResistances();
+    // 加载生物法术模板
     LoadCreatureTemplateSpells();
 
     // Checking needs to be done after loading because of the difficulty self referencing
@@ -636,7 +639,7 @@ void ObjectMgr::LoadCreatureTemplateResistances()
         Field* fields = result->Fetch();
 
         uint32 creatureID = fields[0].GetUInt32();
-        uint8 school      = fields[1].GetUInt8();
+        uint8 school      = fields[1].GetUInt8(); // 法术学派（体系）；火焰、冰霜、暗影、神圣等等
 
         if (school == SPELL_SCHOOL_NORMAL || school >= MAX_SPELL_SCHOOL)
         {
@@ -652,7 +655,7 @@ void ObjectMgr::LoadCreatureTemplateResistances()
         }
 
         CreatureTemplate& creatureTemplate = itr->second;
-        creatureTemplate.resistance[school] = fields[2].GetInt16();
+        creatureTemplate.resistance[school] = fields[2].GetInt16(); // 这个怪物对哪些法术学派有抗性，以及抗多少
 
         ++count;
 
@@ -681,7 +684,7 @@ void ObjectMgr::LoadCreatureTemplateSpells()
         Field* fields = result->Fetch();
 
         uint32 creatureID = fields[0].GetUInt32();
-        uint8 index       = fields[1].GetUInt8();
+        uint8 index       = fields[1].GetUInt8(); // 技能槽位；从 0 开始，如果存在多个技能则往后递增
 
         if (index >= MAX_CREATURE_SPELLS)
         {
@@ -697,7 +700,7 @@ void ObjectMgr::LoadCreatureTemplateSpells()
         }
 
         CreatureTemplate& creatureTemplate = itr->second;
-        creatureTemplate.spells[index] = fields[2].GetUInt32();;
+        creatureTemplate.spells[index] = fields[2].GetUInt32(); // 初始化生物的第 N 个技能槽位的法术ID
 
         ++count;
 

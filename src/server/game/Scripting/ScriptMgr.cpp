@@ -278,6 +278,7 @@ class ScriptRegistry final
 {
     ScriptRegistry()
     {
+        // 构造函数会将当前实例插入到 ScriptRegistryCompositum::_registries
         sScriptRegistryCompositum->Register(this);
     }
 
@@ -781,17 +782,25 @@ public:
     // Adds a database bound script
     void AddScript(ScriptType* script)
     {
+        // ScriptType = CreatureScript,...
+
         ASSERT(script,
                "Tried to call AddScript with a nullpointer!");
+        // 需要事先调用 sScriptMgr->SetScriptContext
         ASSERT(!sScriptMgr->GetCurrentScriptContext().empty(),
                "Tried to register a script without being in a valid script context!");
 
         std::unique_ptr<ScriptType> script_ptr(script);
 
+        // 查找脚本id；
+        // 脚本id与脚本名可以互相转换；具体的，脚本id为脚本名在_scriptNamesStore中的下标
+        //
         // Get an ID for the script. An ID only exists if it's a script that is assigned in the database
         // through a script name (or similar).
         if (uint32 const id = sObjectMgr->GetScriptId(script->GetName()))
         {
+            // 防止重复注册了相同名的脚本
+            //
             // Try to find an existing script.
             for (auto const& stored_script : _scripts)
             {
@@ -802,6 +811,9 @@ public:
                     ABORT_MSG("Script '%s' already assigned with the same script name, "
                         "so the script can't work.", script->GetName().c_str());
 
+                    // 延迟析构 script/GenericCreatureScript<npc_pet_dk_guardian>("npc_pet_dk_guardian")/...
+                    // 析构的工作放在下一个逻辑帧中；
+
                     // Error that should be fixed ASAP.
                     sScriptRegistryCompositum->QueueForDelayedDelete(std::move(script_ptr));
                     ABORT();
@@ -810,10 +822,13 @@ public:
             }
 
             // If the script isn't assigned -> assign it!
-            _scripts.insert(std::make_pair(id, std::move(script_ptr)));
-            _ids_of_contexts.insert(std::make_pair(sScriptMgr->GetCurrentScriptContext(), id));
-            _recently_added_ids.insert(id);
+            _scripts.insert(std::make_pair(id, std::move(script_ptr))); // { script_id -> script_name, script }
+            _ids_of_contexts.insert(std::make_pair(sScriptMgr->GetCurrentScriptContext(), id)); // { cur_cxt/mod_name, script_id -> script_name }
+            _recently_added_ids.insert(id); // script_id
 
+            // 此处建立了 context 与 script_name 之间的对应关系；
+            // 将对应关系缓存至 ScriptRegistryCompositum::_scriptnames_to_context；
+            // context 类似于一个 mod_name 的概念，类似于，在某个 mod_name 下包含了哪些 script_name；
             sScriptRegistryCompositum->SetScriptNameInContext(script->GetName(),
                 sScriptMgr->GetCurrentScriptContext());
         }
@@ -1046,34 +1061,42 @@ void ScriptMgr::Initialize()
 
     uint32 oldMSTime = getMSTime();
 
-    // 从 db 中初始化 SystemMgr::_waypointStore, SystemMgr::m_mSplineChainsMap 成员
+    // 初始化 SystemMgr::_waypointStore, SystemMgr::m_mSplineChainsMap
     LoadDatabase();
 
     TC_LOG_INFO("server.loading", "Loading C++ scripts");
 
-    // 依据 SpellInfo 初始化 ScriptMgr.cpp::SpellSummary, CreatureAI.cpp::AISpellInfo 成员(缓存)
+    // 预处理一些服务于 AI 快速决策的缓存数据
     FillSpellSummary();
 
     // Load core scripts
 
-    // 初始化 _currentContext 成员
+    // 设置 _currentContext = "___static___"；暂时不清楚作用
     SetScriptContext(GetNameOfStaticContext());
 
-    // 为什么要在这里初始化？而不是像其它 src/server/scripts/<script_dir> 初始化的方式？
-    // SmartAI
+    // 此处调用的是 SmartAI 脚本的注册函数；
+    //
+    // 为什么不是像其它 src/server/scripts/<mod> 初始化的方式？
     AddSC_SmartScripts();
 
-    // 同上的疑问
-    // LFGScripts
+
+    // 此处调用的是 LFGScripts 脚本的注册函数；
+    //
+    // 为什么不是像其它 src/server/scripts/<mod> 初始化的方式？
+    //
+    // LFG = Looking For Group(组队)
     lfg::AddSC_LFGScripts();
 
-    // 该成员在 main 函数里面设置了，这里就开始加载 src/server/scripts/<script_dir> 中的各种 scripts
+    // _script_loader_callback 会在 main 函数执行时设置；
+    // 如果构建时配置脚本为静态加载，那么此处就开始执行  src/server/scripts/<mod> 中的各种脚本注册函数；
+    //
     // Load all static linked scripts through the script loader function.
     ASSERT(_script_loader_callback,
            "Script loader callback wasn't registered!");
     _script_loader_callback();
 
-    // 如果启用了 BUILD_SHARED_LIBS 选项，则 sScriptReloadMgr 返回 HotSwapScriptReloadMgr 的派生实现
+    // 如果启用了 BUILD_SHARED_LIBS 选项，则 sScriptReloadMgr 返回的是 ScriptReloadMgr 的派生 HotSwapScriptReloadMgr；
+    //
     // Initialize all dynamic scripts
     // and finishes the context switch to do
     // bulk loading
@@ -1154,17 +1177,83 @@ void ScriptMgr::Unload()
 
 void ScriptMgr::LoadDatabase()
 {
-    // 从 db 中初始化 _waypointStore 成员
+    // 从 world.script_waypoint 中读取定义初始化 _waypointStore
+    // 
+    // script_waypoint 保存的是某个生物 entry 配置的一系列路径点
+    // (entry)
+    // ├╴ entryId = 0
+    // │  ├╴ pointId = 0, pos, wait = 1000
+    // │  ├╴ pointId = 1, pos, wait = 0
+    // │  ╰╴ pointId = 2, pos, wait = 200
+    // ╰╴ ...
+    //
+    // 路径点定义了多个点，相邻的点之间连成折线以形成一段可移动的路径
+    //
+    // A─────────B
+    // │         │
+    // │         │
+    // │         │
+    // │         │
+    // D─────────C
+    //
     sScriptSystemMgr->LoadScriptWaypoints();
 
-    // 从 db 中初始化 m_mSplineChainsMap 成员
+    // 从 wolrd.script_spline_chain_meta world.script_spline_chain_waypoints 读取定义初始化 m_mSplineChainsMap
+    //
+    // m_mSplineChainsMap 保存的是用于控制生物（包括NPC）移动的样条链数据，结构是三层的
+    //
+    // m_mSplineChainsMap[{entry, chainId}] -> std::vector<SplineChainLink>
+    // (entry, chainId)
+    // ├╴ entry = 0, chainId = 0
+    // │ ├╴ splinId = 0
+    // │ │ ├╴ expectedDuration
+    // │ │ ├╴ velocity
+    // │ │ ╰╴ waypoints (0,1,2,...)
+    // │ ╰╴ splinId = 1
+    // │   ╰╴ ...
+    // ╰╴ ...
+    //
+    // 样条（spline）：一段连续、平滑（有曲率）且包含时间的移动轨迹；一段样条内包含了多个路径点
+    // 样条链（Spline Chain）：多个 spline 串起来，形成一段完整的脚本化移动行为
+    //       
+    //                                                  Spline1                                      
+    //                                                     ▲                                         
+    //                                                     │                                         
+    //                                                                                               
+    //                                          oooooooooo              o ◄── Point0                             
+    //                                         o          o             o ◄── Point1                          
+    //                                        o            o            o ◄── Point2                            
+    //                        Spline0         o             o           o                            
+    //                           ▲            o              o         o                             
+    //                           │            o               ooooooooo                              
+    //                                        X ◄── link                                             
+    //                oooooooooo              o                                                      
+    //               o          o             o                                                      
+    //              o            o            o                                                      
+    //   Point2 ──► o             o           o                                                      
+    //   Point1 ──► o              o         o                                                       
+    //   Point0 ──► o               ooooooooo                                                        
+    // │                                                                             │                          
+    // └─────────────────────────┬───────────────────────────────────────────────────┘                          
+    //                           │                                                        
+    //                           ▼                                                        
+    //                      Spline Chain
+    //
     sScriptSystemMgr->LoadScriptSplineChains();
 }
 
 void ScriptMgr::FillSpellSummary()
 {
+    // 此处需要依据 SpellMgr::mSpellInfoMap 中的定义初始化 UnitAI::AISpellInfo；
+    // 没有太多行为逻辑，大多都是数据初始化、预处理工作以服务于 AI 快速决策
+    //
+    // UnitAI::AISpellInfo 大致包含了法术的作用目标类型、冷却时间、基础范围、触发条件；
     UnitAI::FillAISpellInfo();
 
+    // 此处需要依据 SpellMgr::mSpellInfoMap 中的定义初始化 ScriptMgr.cpp:SpellSummary；
+    // 没有太多行为逻辑，大多都是数据初始化、预处理工作以服务于 AI 快速决策
+    //
+    // ScriptMgr.cpp:SpellSummary 大致包含了法术大概能打谁、是伤害/治疗/光环哪一类等；
     SpellSummary = new TSpellSummary[sSpellMgr->GetSpellInfoStoreSize()];
 
     SpellInfo const* pTempSpell;
