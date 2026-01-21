@@ -444,13 +444,13 @@ void PoolMgr::LoadFromDB()
         TC_LOG_INFO("server.loading", ">> Loaded {} objects pools in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
     }
 
-    // Creatures
+    // Creatures（稀有精英怪）
 
     TC_LOG_INFO("server.loading", "Loading Creatures Pooling Data...");
     {
         uint32 oldMSTime = getMSTime();
 
-        //                                                 1      2            3
+        //                                               0        1            2
         QueryResult result = WorldDatabase.Query("SELECT spawnId, poolSpawnId, chance FROM pool_members WHERE type = 0");
 
         if (!result)

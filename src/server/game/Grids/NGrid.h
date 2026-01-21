@@ -66,17 +66,12 @@ typedef enum
 // ACTIVE_OBJECT      = Player
 // WORLD_OBJECT_TYPES = TypeList<Player, TypeList<Creature, TypeList<Corpse, TypeList<DynamicObject, TypeNull>>>>
 // GRID_OBJECT_TYPES  = TypeList<GameObject, TypeList<Creature, TypeList<DynamicObject, TypeList<Corpse, TypeNull>>>>
-template
-<
-uint32 N,
-class ACTIVE_OBJECT,
-class WORLD_OBJECT_TYPES,
-class GRID_OBJECT_TYPES
->
+template<uint32 N, class ACTIVE_OBJECT, class WORLD_OBJECT_TYPES, class GRID_OBJECT_TYPES>
 class NGrid
 {
     public:
         typedef Grid<ACTIVE_OBJECT, WORLD_OBJECT_TYPES, GRID_OBJECT_TYPES> GridType;
+
         NGrid(uint32 id, int32 x, int32 y, time_t expiry, bool unload = true) :
             i_gridId(id), i_GridInfo(GridInfo(expiry, unload)), i_x(x), i_y(y),
             i_cellstate(GRID_STATE_INVALID), i_GridObjectDataLoaded(false)

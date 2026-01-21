@@ -1337,6 +1337,7 @@ class TC_GAME_API ObjectMgr
         CreatureDataContainer const& GetAllCreatureData() const { return _creatureDataStore; }
         CreatureData const* GetCreatureData(ObjectGuid::LowType spawnId) const
         {
+            // spawnId = creature.guid
             CreatureDataContainer::const_iterator itr = _creatureDataStore.find(spawnId);
             if (itr == _creatureDataStore.end()) return nullptr;
             return &itr->second;
@@ -1357,7 +1358,8 @@ class TC_GAME_API ObjectMgr
         }
         GameObjectDataContainer const& GetAllGameObjectData() const { return _gameObjectDataStore; }
         GameObjectData const* GetGameObjectData(ObjectGuid::LowType spawnId) const
-        {
+        { 
+            // spawnId = gameobject.guid
             GameObjectDataContainer::const_iterator itr = _gameObjectDataStore.find(spawnId);
             if (itr == _gameObjectDataStore.end()) return nullptr;
             return &itr->second;

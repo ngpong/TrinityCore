@@ -191,7 +191,7 @@ Add<mod_name>Script 函数的调用还需要一个总入口，它由 cmake 的�
 唯一入口点在 build/src/server/scripts/gen_scriptloader/static/ScriptLoader.cpp::AddScripts，该函数内部调用了所有的 Add<mod_name>Script 函数以完成脚本的注册；
 
 对于动态加载的脚本系统：
-首先，各模块(/src/server/scripts/gen_scriptloader/<mod_name>/;src/server/scripts/<mod_name>)的脚本被单独编译为 libscripts_<mod_name>.so 并放置相对可执行文件目录的 scripts/ 目录下；
+首先，各模块(src/server/scripts/gen_scriptloader/<mod_name>/;src/server/scripts/<mod_name>)的脚本被单独编译为 libscripts_<mod_name>.so 并放置相对可执行文件目录的 scripts/ 目录下；
 脚本按模块编排为动态库后，加载方式稍显复杂，核心逻辑从 ScriptMgr::Initialize 开始处理，大致做了这几件事情：
 • 创建用于存放脚本so文件的临时文件夹 /tmp/tc_script_cache_{git_branch}_{sha1}
 • 遍历 env/bin/scripts/ 目录下的 libscripts_<mod_name>.so；对于每个 so 文件，执行这些操作：
@@ -202,18 +202,23 @@ Add<mod_name>Script 函数的调用还需要一个总入口，它由 cmake 的�
   • HotSwapScriptReloadMgr::_running_script_module_names << {src/server/scripts/<mod_name>, <mod_name>}
   • 执行 <mod> 的 AddScripts 函数，完成当前模块下的所有脚本的注册工作
 
-脚本注册都做了什么？
+解释几个概念：
+• 什么是脚本？
+核心对于一个脚本的定义是，任何间接继承了脚本根基类 ScriptObject 的派生亦或是间接引用了根基类的类，都可称为一个脚本；脚本名则为这些特定类的类名；
+具体的，我们可以翻阅一个脚本模块目录 src/server/scripts/<mod_name>/ 下的各种文件，文件中所定义的类则为前述所描绘的脚本；
 
+• 如何计算脚本ID？
+每个合法的脚本都分配有一个ID，这个ID是脚本名存储在 ObjectMgr::_scriptNamesStore 中的下标；
+ObjectMgr::_scriptNamesStore 是一个数组，它存储了所有可用的脚本名；在服务初启动时会调用 ObjectMgr::LoadScriptNames 函数，该函数根据数据库的查询结果来完成数组的初始化工作；
 
+• 什么是脚本的上下文(context)？
+脚本上下文是一个字符串，动态加载脚本时它是模块名<mod_name>示，静态加载脚本时则为 "__static__"；
+和模块一样，上下文是一个组别的概念，它表示为一个组别下面管理了哪些脚本；
 
+• 什么是脚本类型(ScriptType)？
+脚本根基类 ScriptObject 的直接派生可称为脚本类型；依据目前的线索，找到的脚本类型包括但不限于：CreatureScript, SpellScriptLoader, GameObjectScript, InstanceMapScript, AreaTriggerScript, ItemScript, PlayerScript；
+这需要区别于脚本，回顾其定义我们可以完善为：一旦一个类拥有（继承/引用）了脚本类型，那么这个类可称为脚本；
 
-World::SetInitialWorldSettings -> 
-ScriptMgr::Initialize -> 
-HotSwapScriptReloadMgr::Initialize ->
-HotSwapScriptReloadMgr::InitializeDefaultLibraries -> 
-HotSwapScriptReloadMgr::ProcessLoadScriptModule -> 
-build/src/server/scripts/compilegen_scriptloader/<mod>/ScriptLoader.cpp::AddScripts ->
-src/server/scripts/<mod>/<mod>_script_loader.cpp::Add<mod>Scripts
 
 
 
@@ -224,12 +229,134 @@ src/server/scripts/<mod>/<mod>_script_loader.cpp::Add<mod>Scripts
 
 
 
+四、模板元编程片段:
+• template <typename... Ts> GenericSpellAndAuraScriptLoader
+  该类是声明了可变参数的模板类，在类的内部有如下类型别名的声明：
+
+    using SpellScriptType = typename Trinity::find_type_if_t<Trinity::SpellScripts::is_SpellScript, Ts...>;
+    using AuraScriptType = typename Trinity::find_type_if_t<Trinity::SpellScripts::is_AuraScript, Ts...>;
+    using ArgsType = typename Trinity::find_type_if_t<Trinity::is_tuple, Ts...>;
+
+  这三个类型别名的声明依赖于 Trinity::find_type_if_t 来完成；它是一个 traits 风格的别名模板，声明如下：
+
+    template<template<typename...> typename Check, typename... Ts>
+    using find_type_if_t = typename find_type_if<Check, Ts...>::type;
+
+  该模板的功能简单来讲就一句话：递归查找模板可变参数 Ts... 中的所有类型；如果找到第一个符合谓词规则 Check 的参数则返回该类型，
+  否则返回 Trinity::find_type_end；
+
+  对于 find_type_if 的具体实现，本质上是一个基于谓词的编译期类型查找（type-trait + 参数包递归）：用 std::conditional_t 递归扫
+  描 Ts...，命中返回首个满足 Check<T>::value 的类型，否则返回哨兵 find_type_end。
+
+  类在构造阶段要求输入一个 std::tuple 类型的参数（具体类型由 ArgsType 来确定）用于初始化类的 _args 成员；
+  要使用 _args，需通过 new_from_tuple 函数来辅助完成；该函数可以按顺序展开 std::tuple 中的元素用作实例化/函数调用时填入的参数；
+
+• 编译期静态字典
+  游戏内的对象类型众多，不同的对象类型都对应着不同的存储方式和逻辑处理。因此，一种能支持以类类型作为键查找的容器则显得尤为重要
+  ；我们期望按对象的静态类型去获得它对应的容器与操作入口，就需要一套以类型为索引的字典式组织方式。
+
+  但若按常见做法把 "类型→容器" 的映射放到运行期（例如通过 RTTI、typeid、运行期哈希/索引表、虚函数分发等）来实现，通常会引入额外
+  的运行时开销与间接层。因此 TC 选择把这部分操作迁移到了编译期来完成。
+  
+  要实现一张支持编译期类型索引的字典表，代码确实会更繁琐。下面按 TC 的实际实现把它拆开说明。
+
+  (1) TC 先定义了一个类型链表(typelist)作为编译期类型集合的载体：
+
+        class TypeNull;
+        
+        template<typename HEAD, typename TAIL>
+        struct TypeList
+        {
+            typedef HEAD Head;
+            typedef TAIL Tail;
+        };
+  
+      其中 TypeNull 是空表终止标记；TypeList<HEAD, TAIL> 以 head/tail 的形式把类型串起来。为了更方便地书写固定长度的 typelist，
+      TC 又提供了一组宏作为语法糖：
+
+        #define TYPELIST_1(T1)                     TypeList<T1, TypeNull>
+        #define TYPELIST_2(T1, T2)                 TypeList<T1, TYPELIST_1(T2) >
+        #define TYPELIST_3(T1, T2, T3)             TypeList<T1, TYPELIST_2(T2, T3) >
+        #define TYPELIST_4(T1, T2, T3, T4)         TypeList<T1, TYPELIST_3(T2, T3, T4) >
+        #define TYPELIST_5(T1, T2, T3, T4, T5)     TypeList<T1, TYPELIST_4(T2, T3, T4, T5) >
+        #define TYPELIST_6(T1, T2, T3, T4, T5, T6) TypeList<T1, TYPELIST_5(T2, T3, T4, T5, T6) >
+
+      宏展开后得到的本质是：TypeList<A, TypeList<B, TypeList<C, TypeNull>>>；也就是一个编译期类型链表。
+
+  (2) 在此基础上，又定义了两类容器包装器用于承载每一种对象类型对应的容器实例，并提供统一的外层接口：
+
+        template<class OBJECT_TYPES>
+        class TypeMapContainer;
+        
+        template<class OBJECT_TYPES, class KEY_TYPE>
+        class TypeUnorderedMapContainer;
+
+      两者的差别在于内部容器不同、使用场景不同：
+
+      TypeMapContainer 为每种类型对应一个 GridRefManager<T>，更偏向链式管理/遍历 + 引用链类的组织方式：
+
+        template<class OBJECT>
+        struct ContainerMapList
+        {
+            GridRefManager<OBJECT> _element;
+        };
+
+      TypeUnorderedMapContainer 为每种类型对应一个 std::unordered_map<KEY_TYPE, T*>，更偏向键到对象的快速定位：
+
+        template<class OBJECT, class KEY_TYPE>
+        struct ContainerUnorderedMap
+        {
+            std::unordered_map<KEY_TYPE, OBJECT*> _element;
+        };
+
+      关键点的地方在于，上述 "每种类型都有一个容器实例" 并不是通过运行期 map 存起来，而是通过对 typelist 做递归偏特化展开，在
+      编译期生成一个静态嵌套结构。
+
+      以 ContainerMapList 为例，它对 TypeNull 给出终止特化（空节点不包含任何东西），对 TypeList<H, T> 给出递归特化（拆成 Head/Tail 两部分）：
+
+        template<>
+        struct ContainerMapList<TypeNull> {};
+        
+        template<class H, class T>
+        struct ContainerMapList<TypeList<H, T>>
+        {
+            ContainerMapList<H> _HeadElements;
+            ContainerMapList<T> _TailElements;
+        };
+
+      ContainerUnorderedMap 同理（只是多了一个 KEY_TYPE 维度）：
+
+        template<class KEY_TYPE>
+        struct ContainerUnorderedMap<TypeNull, KEY_TYPE> {};
+        
+        template<class H, class T, class KEY_TYPE>
+        struct ContainerUnorderedMap<TypeList<H, T>, KEY_TYPE>
+        {
+            ContainerUnorderedMap<H, KEY_TYPE> _HeadElements;
+            ContainerUnorderedMap<T, KEY_TYPE> _TailElements;
+        };
+
+
+  (3) 基于上述信息，我们可以总结如下：
+
+      TC 用 typelist 表达可容纳的对象类型集合，再用模板偏特化对 typelist 做 head/tail 递归展开，把每种类型对应的容器实例静态嵌
+      入到一个嵌套结构中；随后通过一组同名模板函数（Trinity::Insert/Remove/Find/Count/Size）在编译期选择并递归定位到目标类型对
+      应的那份容器，从而以接近零运行时分发的方式完成按类型索引容器并执行操作的需求。
+  
+
+
+
+
+  Reference 和侵入式链表的实现
+
+  世界坐标转化为 cell 坐标：GridDefines.h 中有注释
+
+
 四、疑问:
 • map grid cell <area> <zone> 之间的关系是什么？
   • 在计算 area_id 的时候如 VMapManager2::getAreaInfo，会涉及到一些 BIH 算法的计算，看不懂
 • i_maps 的元素为 Map，似乎存储的是其派生 MapInstance，每个 MapInstance 内部又存储多个 m_InstancedMaps
 • creature 和 gameobject 内部都有一个 scriptId 字段，是干啥用的？
-• VisitObjectsToSwapOnMap 有点黑魔法的味道，debug看看咋回事
 
 
 

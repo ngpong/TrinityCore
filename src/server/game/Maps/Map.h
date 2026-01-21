@@ -274,7 +274,8 @@ inline bool CompareRespawnInfo::operator()(RespawnInfo const* a, RespawnInfo con
     return a->type < b->type;
 }
 
-extern template class TypeUnorderedMapContainer<AllMapStoredObjectTypes, ObjectGuid>;
+// 下面的代码属于是显式模板实例化声明，为了增快编译速度；但是他们会导致 clangd 出错；
+// extern template class TypeUnorderedMapContainer<AllMapStoredObjectTypes, ObjectGuid>;
 typedef TypeUnorderedMapContainer<AllMapStoredObjectTypes, ObjectGuid> MapStoredObjectTypesContainer;
 
 class TC_GAME_API Map : public GridRefManager<NGridType>
@@ -486,6 +487,7 @@ class TC_GAME_API Map : public GridRefManager<NGridType>
         DynamicObject* GetDynamicObject(ObjectGuid const& guid);
         Pet* GetPet(ObjectGuid const& guid);
 
+        // 该容器的修改操作通过 AddToWorld/RemoveFromWorld 来完成
         MapStoredObjectTypesContainer& GetObjectsStore() { return _objectsStore; }
 
         typedef std::unordered_multimap<ObjectGuid::LowType, Creature*> CreatureBySpawnIdContainer;
@@ -850,6 +852,7 @@ class TC_GAME_API Map : public GridRefManager<NGridType>
         ObjectGuidGenerator& GetGuidSequenceGenerator(HighGuid high);
 
         std::map<HighGuid, std::unique_ptr<ObjectGuidGenerator>> _guidGenerators;
+        // 该容器的修改操作通过 AddToWorld/RemoveFromWorld 来完成
         MapStoredObjectTypesContainer _objectsStore;
         CreatureBySpawnIdContainer _creatureBySpawnIdStore;
         GameObjectBySpawnIdContainer _gameobjectBySpawnIdStore;

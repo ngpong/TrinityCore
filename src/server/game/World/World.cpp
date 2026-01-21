@@ -1927,8 +1927,10 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading Spawn Group Templates...");
     sObjectMgr->LoadSpawnGroupTemplates();
 
-    // 初始化一些缓存变量
-    // 可能会在这一步更新 creature 的 zoneid && areaid; zoneid && areaid 是啥意思没太看懂
+
+    // 把数据库 creature 表里所有"世界里摆放的生物/NPC刷新点(spawn)"加载进内存，并做一系列数据校验/修正，然后把"需要常驻在地图网格系统里管理
+    // 的spawn"注册到对应地图的 Grid 里。它加载的是刷怪点数据(CreatureData)，不是模板(CreatureTemplate)；
+    //
     // 将生成的生物加入到网格(cell)当中
     TC_LOG_INFO("server.loading", "Loading Creature Data...");
     sObjectMgr->LoadCreatures();
@@ -2016,10 +2018,10 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading Quests Greetings...");
     sObjectMgr->LoadQuestGreetings();                           // must be loaded after creature_template, gameobject_template tables
 
-    // 初始化一些缓存变量
-    // pool manager 是干啥的？
+    // 把数据库里定义的“哪些刷怪点/采集点/箱子/鱼点，属于哪个池子、按什么概率出现、每个池子同时最多刷几个”等规则全部读进内存
     TC_LOG_INFO("server.loading", "Loading Objects Pooling Data...");
     sPoolMgr->LoadFromDB();
+
     TC_LOG_INFO("server.loading", "Loading Quest Pooling Data...");
     sQuestPoolMgr->LoadFromDB();                                // must be after quest templates
 

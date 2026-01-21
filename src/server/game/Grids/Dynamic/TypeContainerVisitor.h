@@ -28,57 +28,65 @@
 #include "Dynamic/TypeContainer.h"
 
 // forward declaration
-template<class T, class Y> class TypeContainerVisitor;
+template<class T, class Y>
+class TypeContainerVisitor;
 
-// visitor helper
-template<class VISITOR, class TYPE_CONTAINER> void VisitorHelper(VISITOR &v, TYPE_CONTAINER &c)
+// visitor helper=============================================
+// 一个通用的 visitor，目前 TC 中并无使用
+template<class VISITOR, class TYPE_CONTAINER>
+void VisitorHelper(VISITOR &v, TYPE_CONTAINER &c)
 {
     v.Visit(c);
 }
+// ===========================================================
 
-// terminate condition container map list
-template<class VISITOR> void VisitorHelper(VISITOR &/*v*/, ContainerMapList<TypeNull> &/*c*/) { }
-
-template<class VISITOR, class T> void VisitorHelper(VISITOR &v, ContainerMapList<T> &c)
+// TypeMapContainer============================================
+template<class VISITOR>
+void VisitorHelper(VISITOR &/*v*/, ContainerMapList<TypeNull> &/*c*/)
+{
+}
+template<class VISITOR, class T>
+void VisitorHelper(VISITOR &v, ContainerMapList<T> &c)
 {
     v.Visit(c._element);
 }
-
 // recursion container map list
-template<class VISITOR, class H, class T> void VisitorHelper(VISITOR &v, ContainerMapList<TypeList<H, T> > &c)
+template<class VISITOR, class H, class T>
+void VisitorHelper(VISITOR &v, ContainerMapList<TypeList<H, T> > &c)
 {
-    VisitorHelper(v, c._elements);
+    VisitorHelper(v, c._HeadElements);
     VisitorHelper(v, c._TailElements);
 }
-
-// for TypeMapContainer
-template<class VISITOR, class OBJECT_TYPES> void VisitorHelper(VISITOR &v, TypeMapContainer<OBJECT_TYPES> &c)
+template<class VISITOR, class OBJECT_TYPES>
+void VisitorHelper(VISITOR &v, TypeMapContainer<OBJECT_TYPES> &c)
 {
     VisitorHelper(v, c.GetElements());
 }
+// ============================================================
 
-// TypeUnorderedMapContainer
+// TypeUnorderedMapContainer===================================
 template<class VISITOR, class KEY_TYPE>
-void VisitorHelper(VISITOR& /*v*/, ContainerUnorderedMap<TypeNull, KEY_TYPE>& /*c*/) { }
-
+void VisitorHelper(VISITOR& /*v*/, ContainerUnorderedMap<TypeNull, KEY_TYPE>& /*c*/) 
+{
+}
 template<class VISITOR, class KEY_TYPE, class T>
 void VisitorHelper(VISITOR& v, ContainerUnorderedMap<T, KEY_TYPE>& c)
 {
     v.Visit(c._element);
 }
-
+// recursion container map list
 template<class VISITOR, class KEY_TYPE, class H, class T>
 void VisitorHelper(VISITOR& v, ContainerUnorderedMap<TypeList<H, T>, KEY_TYPE>& c)
 {
-    VisitorHelper(v, c._elements);
+    VisitorHelper(v, c._HeadElements);
     VisitorHelper(v, c._TailElements);
 }
-
 template<class VISITOR, class OBJECT_TYPES, class KEY_TYPE>
 void VisitorHelper(VISITOR& v, TypeUnorderedMapContainer<OBJECT_TYPES, KEY_TYPE>& c)
 {
     VisitorHelper(v, c.GetElements());
 }
+// ============================================================
 
 template<class VISITOR, class TYPE_CONTAINER>
 class TypeContainerVisitor

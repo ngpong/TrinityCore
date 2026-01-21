@@ -51,15 +51,20 @@ class LinkedListElement
 
         void delink()
         {
+            // 我们不能操作哨兵节点，即整张链表的首(iFirst)尾(iLast)节点 
             if (!isInList())
                 return;
 
+            // 此处的移除操作是"相对节点"的，而非整张链表；
+            // 即只是重新维护当前节点的前后节点之间的指向关系；
             iNext->iPrev = iPrev;
             iPrev->iNext = iNext;
             iNext = nullptr;
             iPrev = nullptr;
         }
 
+        // 将节点 pElem 插入到当前节点 this 的前面；
+        // 插入的过程中重新维护节点的前后关系
         void insertBefore(LinkedListElement* pElem)
         {
             pElem->iNext = this;
@@ -67,7 +72,9 @@ class LinkedListElement
             iPrev->iNext = pElem;
             iPrev = pElem;
         }
-
+        
+        // 将节点 pElem 插入到当前节点 this 的后面；
+        // 插入的过程中重新维护节点的前后关系
         void insertAfter(LinkedListElement* pElem)
         {
             pElem->iPrev = this;
@@ -113,11 +120,13 @@ class LinkedListHead
         LinkedListElement      * getLast()       { return(isEmpty() ? nullptr : iLast.iPrev); }
         LinkedListElement const* getLast() const { return(isEmpty() ? nullptr : iLast.iPrev); }
 
+        // 链表首插，类似于 push_front
         void insertFirst(LinkedListElement* pElem)
         {
             iFirst.insertAfter(pElem);
         }
 
+        // 链表尾插，类似于 push_front
         void insertLast(LinkedListElement* pElem)
         {
             iLast.insertBefore(pElem);

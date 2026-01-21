@@ -39,12 +39,7 @@ template<class A, class T, class O> class GridLoader;
 // ACTIVE_OBJECT      = Player
 // WORLD_OBJECT_TYPES = TypeList<Player, TypeList<Creature, TypeList<Corpse, TypeList<DynamicObject, TypeNull>>>>
 // GRID_OBJECT_TYPES  = TypeList<GameObject, TypeList<Creature, TypeList<DynamicObject, TypeList<Corpse, TypeNull>>>>
-template
-<
-class ACTIVE_OBJECT,
-class WORLD_OBJECT_TYPES,
-class GRID_OBJECT_TYPES
->
+template<class ACTIVE_OBJECT, class WORLD_OBJECT_TYPES, class GRID_OBJECT_TYPES>
 class Grid
 {
     // allows the GridLoader to access its internals
@@ -58,7 +53,8 @@ class Grid
 
         /** an object of interested enters the grid
          */
-        template<class SPECIFIC_OBJECT> void AddWorldObject(SPECIFIC_OBJECT *obj)
+        template<class SPECIFIC_OBJECT>
+        void AddWorldObject(SPECIFIC_OBJECT *obj)
         {
             i_objects.template insert<SPECIFIC_OBJECT>(obj);
             ASSERT(obj->IsInGrid());
@@ -111,7 +107,8 @@ class Grid
 
         /** Inserts a container type object into the grid.
          */
-        template<class SPECIFIC_OBJECT> void AddGridObject(SPECIFIC_OBJECT *obj)
+        template<class SPECIFIC_OBJECT>
+        void AddGridObject(SPECIFIC_OBJECT *obj)
         {
             i_container.template insert<SPECIFIC_OBJECT>(obj);
             ASSERT(obj->IsInGrid());

@@ -40,16 +40,14 @@ struct ContainerMapList
 {
     GridRefManager<OBJECT> _element;
 };
-
 template<>
 struct ContainerMapList<TypeNull>                /* nothing is in type null */
 {
 };
-
 template<class H, class T>
 struct ContainerMapList<TypeList<H, T> >
 {
-    ContainerMapList<H> _elements;
+    ContainerMapList<H> _HeadElements;
     ContainerMapList<T> _TailElements;
 };
 
@@ -58,16 +56,14 @@ struct ContainerUnorderedMap
 {
     std::unordered_map<KEY_TYPE, OBJECT*> _element;
 };
-
 template<class KEY_TYPE>
 struct ContainerUnorderedMap<TypeNull, KEY_TYPE>
 {
 };
-
 template<class H, class T, class KEY_TYPE>
 struct ContainerUnorderedMap<TypeList<H, T>, KEY_TYPE>
 {
-    ContainerUnorderedMap<H, KEY_TYPE> _elements;
+    ContainerUnorderedMap<H, KEY_TYPE> _HeadElements;
     ContainerUnorderedMap<T, KEY_TYPE> _TailElements;
 };
 
@@ -130,7 +126,6 @@ template <class OBJECT_TYPES>
 template <class SPECIFIC_TYPE>
 bool TypeMapContainer<OBJECT_TYPES>::insert(SPECIFIC_TYPE* obj)
 {
-    // SPECIFIC_TYPE = Player
     SPECIFIC_TYPE* t = Trinity::Insert(i_elements, obj);
     return (t != nullptr);
 }

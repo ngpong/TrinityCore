@@ -38,10 +38,10 @@ namespace Trinity
     {
         if constexpr (std::is_same_v<H, SPECIFIC_TYPE>)
         {
-            auto i = elements._elements._element.find(handle);
-            if (i == elements._elements._element.end())
+            auto i = elements._HeadElements._element.find(handle);
+            if (i == elements._HeadElements._element.end())
             {
-                elements._elements._element[handle] = obj;
+                elements._HeadElements._element[handle] = obj;
                 return true;
             }
             else
@@ -63,8 +63,8 @@ namespace Trinity
     {
         if constexpr (std::is_same_v<H, SPECIFIC_TYPE>)
         {
-            auto i = elements._elements._element.find(handle);
-            if (i == elements._elements._element.end())
+            auto i = elements._HeadElements._element.find(handle);
+            if (i == elements._HeadElements._element.end())
                 return nullptr;
             else
                 return i->second;
@@ -82,7 +82,7 @@ namespace Trinity
     {
         if constexpr (std::is_same_v<H, SPECIFIC_TYPE>)
         {
-            elements._elements._element.erase(handle);
+            elements._HeadElements._element.erase(handle);
             return true;
         }
 
@@ -98,7 +98,7 @@ namespace Trinity
     {
         if constexpr (std::is_same_v<H, SPECIFIC_TYPE>)
         {
-            *size = elements._elements._element.size();
+            *size = elements._HeadElements._element.size();
             return true;
         }
 
@@ -115,7 +115,7 @@ namespace Trinity
     {
         if constexpr (std::is_same_v<H, SPECIFIC_TYPE>)
         {
-            return elements._elements._element.getSize();
+            return elements._HeadElements._element.getSize();
         }
 
         if constexpr (std::is_same_v<T, TypeNull>)
@@ -130,7 +130,7 @@ namespace Trinity
     {
         if constexpr (std::is_same_v<H, SPECIFIC_TYPE>)
         {
-            obj->AddToGrid(elements._elements._element);
+            obj->AddToGrid(elements._HeadElements._element);
             return obj;
         }
 

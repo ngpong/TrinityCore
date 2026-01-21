@@ -2176,6 +2176,8 @@ void ObjectMgr::LoadCreatures()
         return;
     }
 
+    // 预先构建每张地图支持哪些难度的 spawnMask 校验表
+    //
     // Build single time for check spawnmask
     std::map<uint32, uint32> spawnMasks;
     for (uint32 i = 0; i < sMapStore.GetNumRows(); ++i)
@@ -2201,8 +2203,8 @@ void ObjectMgr::LoadCreatures()
         }
 
         CreatureData& data = _creatureDataStore[guid];
-        data.spawnId        = guid;
-        data.id             = entry;
+        data.spawnId        = guid; // spawnId
+        data.id             = entry; // creature_template 的 id
         data.mapId          = fields[2].GetUInt16();
         data.spawnPoint.Relocate(fields[3].GetFloat(), fields[4].GetFloat(), fields[5].GetFloat(), fields[6].GetFloat());
         data.displayid      = fields[7].GetUInt32();
@@ -2234,7 +2236,7 @@ void ObjectMgr::LoadCreatures()
         // Skip spawnMask check for transport maps
         if (!IsTransportMap(data.mapId))
         {
-            if (data.spawnMask & ~spawnMasks[data.mapId])
+            if (data.spawnMask & ~spawnMasks[data.mapId]) // 若 data.spawnMask 包含了 spawnMasks[mapId] 之外的 bit，就报错
                 TC_LOG_ERROR("sql.sql", "Table `creature` has creature (GUID: {}) that have wrong spawn mask {} including unsupported difficulty modes for map (Id: {}).", guid, data.spawnMask, data.mapId);
         }
         else
@@ -2297,6 +2299,7 @@ void ObjectMgr::LoadCreatures()
             }
         }
 
+        // 相位码，如果游戏内两个对象的相位码相同，那么则代表互相可见
         if (data.phaseMask == 0)
         {
             TC_LOG_ERROR("sql.sql", "Table `creature` has creature (GUID: {} Entry: {}) with `phaseMask`=0 (not visible for anyone), set to 1.", guid, data.id);

@@ -9,9 +9,11 @@ dep/
 sql/
 contrib/
 
+compile_commands.json
+
 build/
-!build/
-!build/src/
-!build/src/server/
-!build/src/server/scripts/
-!build/src/server/scripts/gen_scriptloader/**
+# !build/
+# !build/src/
+# !build/src/server/
+# !build/src/server/scripts/
+# !build/src/server/scripts/gen_scriptloader/**

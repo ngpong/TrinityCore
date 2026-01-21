@@ -39,7 +39,12 @@
 MapManager::MapManager()
     : _nextInstanceId(0), _scheduledScripts(0)
 {
-    i_gridCleanUpDelay = sWorld->getIntConfig(CONFIG_INTERVAL_GRIDCLEAN);
+    // 该配置读取自 world.GridCleanUpDelay，它大致用于控制玩家离开后，这块区域里的动态对象多久才卸载/回收
+    //
+    // 玩家靠近某个 Grid → 这块 Grid 激活（加载 spawn、生成 Creature/GO、跑 AI）;
+    // 玩家离开、附近没人了 → 这块 Grid 变成“可回收”状态；
+    // 但不会立刻卸载，会等一段时间（就是 i_gridCleanUpDelay）再清掉，避免玩家来回走边界导致频繁加载/卸载抖动；
+    i_gridCleanUpDelay = sWorld->getIntConfig(CONFIG_INTERVAL_GRIDCLEAN); 
     i_timer.SetInterval(sWorld->getIntConfig(CONFIG_INTERVAL_MAPUPDATE));
 }
 
@@ -82,11 +87,20 @@ Map* MapManager::CreateBaseMap(uint32 id)
         ASSERT(entry);
 
         if (entry->Instanceable())
+            // 可实例化地图，例如战场、副本、竞技场等
             map = new MapInstanced(id, i_gridCleanUpDelay);
         else
         {
+            // 开放世界大地图，比如艾泽拉斯大陆等
+            //
+            // 0                 : 开放世界没有实例 id
+            // REGULAR_DIFFICULTY: 普通难度（开放世界通常固定）
+            //
             map = new Map(id, i_gridCleanUpDelay, 0, REGULAR_DIFFICULTY);
+
+            // 加载这张地图里生物(creature)/物体(gameobject)的重生计时
             map->LoadRespawnTimes();
+            // 加载地图上的尸体数据（玩家尸体/墓地相关，具体看 core 版本实现）
             map->LoadCorpseData();
         }
 
@@ -94,6 +108,7 @@ Map* MapManager::CreateBaseMap(uint32 id)
         ptr.reset(map);
         map->SetWeakPtr(ptr);
 
+        // 遍历所有派生自 MapScript 的脚本，找到于当前 map 的 id 相匹配的脚本并调用脚本的 OnCreate 函数；
         sScriptMgr->OnCreateMap(map);
     }
 

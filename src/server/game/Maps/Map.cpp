@@ -314,6 +314,8 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode, Map* _par
 
     _weatherUpdateTimer.SetInterval(time_t(1 * IN_MILLISECONDS));
 
+    // 初始化了 loadedMMaps[GetId()]； 
+    // 此处构建移动地图的逻辑依赖于 recastnavigation 库来实现；
     MMAP::MMapFactory::createOrGetMMapManager()->loadMapInstance(sWorld->GetDataPath(), GetId(), GetInstanceId());
 }
 
@@ -4585,6 +4587,7 @@ void Map::SaveRespawnInfoDB(RespawnInfo const& info, CharacterDatabaseTransactio
 
 void Map::LoadRespawnTimes()
 {
+    // SELECT type, spawnId, respawnTime FROM respawn WHERE mapId = ? AND instanceId = ?
     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_RESPAWNS);
     stmt->setUInt16(0, GetId());
     stmt->setUInt32(1, GetInstanceId());
@@ -4644,7 +4647,8 @@ void Map::LoadCorpseData()
     stmt->setUInt32(1, GetInstanceId());
 
     //        0     1     2     3            4      5          6          7       8       9        10     11        12    13          14          15         16
-    // SELECT posX, posY, posZ, orientation, mapId, displayId, itemCache, bytes1, bytes2, guildId, flags, dynFlags, time, corpseType, instanceId, phaseMask, guid FROM corpse WHERE mapId = ? AND instanceId = ?
+    // SELECT posX, posY, posZ, orientation, mapId, displayId, itemCache, bytes1, bytes2, guildId, flags, dynFlags, time, corpseType, instanceId, phaseMask, guid
+    // FROM corpse WHERE mapId = ? AND instanceId = ?
     PreparedQueryResult result = CharacterDatabase.Query(stmt);
     if (!result)
         return;
@@ -4662,12 +4666,16 @@ void Map::LoadCorpseData()
 
         Corpse* corpse = new Corpse(type);
 
+        // 此处相当于取 db 的结果来初始化 corpse
         if (!corpse->LoadCorpseFromDB(GenerateLowGuid<HighGuid::Corpse>(), fields))
         {
             delete corpse;
             continue;
         }
 
+        // _corpsesByCell
+        // _corpsesByPlayer
+        // _corpseBones
         AddCorpse(corpse);
 
     } while (result->NextRow());

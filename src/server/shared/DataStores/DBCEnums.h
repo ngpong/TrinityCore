@@ -330,13 +330,15 @@ enum FactionMasks
     // if none flags set then non-aggressive creature
 };
 
+// MapTypes: 地图实例类型（用于区分是否副本、团队副本、战场、竞技场等）
+// 常用于脚本/逻辑判断“是否在副本中”、组队规则、复活规则、PVP 规则、人数上限、锁定/进度等。
 enum MapTypes                                               // Lua_IsInInstance
 {
-    MAP_COMMON          = 0,                                // none
-    MAP_INSTANCE        = 1,                                // party
-    MAP_RAID            = 2,                                // raid
-    MAP_BATTLEGROUND    = 3,                                // pvp
-    MAP_ARENA           = 4                                 // arena
+    MAP_COMMON          = 0,                                // none  : 非实例地图（开放世界/主城/野外）；不受实例锁定与人数上限规则影响
+    MAP_INSTANCE        = 1,                                // party : 5人副本（普通/英雄等）；按队伍实例化，通常有副本锁定/重置规则
+    MAP_RAID            = 2,                                // raid  : 团队副本（10/25等）；按团队实例化，有更严格的进度/锁定/进出限制
+    MAP_BATTLEGROUND    = 3,                                // pvp   : 战场实例；以阵营对抗为主，采用战场计分/复活/匹配等规则
+    MAP_ARENA           = 4                                 // arena : 竞技场实例；小规模对战，强调竞技规则（评级/禁用物品/起始门等）
 };
 
 enum MapFlags

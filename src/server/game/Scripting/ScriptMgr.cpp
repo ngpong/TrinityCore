@@ -493,12 +493,17 @@ class CreatureGameObjectScriptRegistrySwapHooks
         AIFunctionMapWorker<std::decay_t<decltype(evaluator)>> worker(std::move(evaluator));
         TypeContainerVisitor<decltype(worker), MapStoredObjectTypesContainer> containerVisitor(worker);
 
+        // map->GetObjectsStore() 的类型是 TypeUnorderedMapContainer<TypeList<Creature, TypeList<GameObject, TypeList<DynamicObject, TypeList<Pet, TypeList<Corpse, TypeNull>>>>>, ObjectGuid>
+        // 这是一个以类型 Creature,GameObject,DynamicObject,Pet,Corpse 作为键的字典；
+        // 此处会便利整个字典，但是只会处理符合当前特化(ObjectType)的类型的元素；
+        // 即只会遍历到 GameObject 和 Creature 
         containerVisitor.Visit(map->GetObjectsStore());
     }
 
     static void DestroyScriptIdsFromSet(std::unordered_set<uint32> const& idsToRemove)
     {
-        // 遍历所有地图
+        // 遍历所有已创建的地图 sMapMgr::i_maps
+        //
         // First reset all swapped scripts safe by guid
         // Skip creatures and gameobjects with an empty guid
         // (that were not added to the world as of now)
@@ -506,7 +511,7 @@ class CreatureGameObjectScriptRegistrySwapHooks
         {
             std::vector<ObjectGuid> guidsToReset;
 
-            // 遍历地图中的所有对象，找到 scriptId 相符的对象并执行下面的 lambda
+            // 遍历地图 map 中，所有类型为 ObjectType 的对象
             VisitObjectsToSwapOnMap(map, idsToRemove, [&](ObjectType* object)
             {
                 if (object->AI() && !object->GetGUID().IsEmpty())
@@ -1498,6 +1503,28 @@ void ScriptMgr::OnGroupRateCalculation(float& rate, uint32 count, bool isRaid)
     FOREACH_SCRIPT(FormulaScript)->OnGroupRateCalculation(rate, count, isRaid);
 }
 
+// 该函数所遍历脚本，限定只能是派生自 MapScript
+//
+// using SR = ScriptRegistry<WorldMapScript>;
+//     // i_mapEntry
+// if (map->GetEntry() && map->GetEntry()->IsWorldMap()) {
+//   if (!SR::Instance()->GetScripts().empty()) {
+//     for (auto itr = SR::Instance()->GetScripts().begin(); itr != SR::Instance()->GetScripts().end(); ++itr) {
+//       MapEntry const *entry = itr->second->GetEntry();
+//       if (!entry)
+//         continue;
+//       // 脚本所设置的地图ID需要和当前地图的ID一致
+//       if (entry->ID == map->GetId()) {
+//         itr->second->OnCreate(map);
+//         return;
+//       }
+//     }
+//   }
+// }
+// SCR_MAP_BGN(WorldMapScript, map, itr, end, entry, IsWorldMap);
+//     itr->second->OnCreate(map);
+// SCR_MAP_END;
+//
 #define SCR_MAP_BGN(M, V, I, E, C, T) \
     if (V->GetEntry() && V->GetEntry()->T()) \
     { \
@@ -1520,6 +1547,21 @@ void ScriptMgr::OnCreateMap(Map* map)
     ASSERT(map);
 
     // 默认情况下没有 WorldMapScript
+    // using SR = ScriptRegistry<WorldMapScript>;
+    //     // i_mapEntry
+    // if (map->GetEntry() && map->GetEntry()->IsWorldMap()) {
+    //   if (!SR::Instance()->GetScripts().empty()) {
+    //     for (auto itr = SR::Instance()->GetScripts().begin(); itr != SR::Instance()->GetScripts().end(); ++itr) {
+    //       MapEntry const *entry = itr->second->GetEntry();
+    //       if (!entry)
+    //         continue;
+    //       if (entry->ID == map->GetId()) {
+    //         itr->second->OnCreate(map);
+    //         return;
+    //       }
+    //     }
+    //   }
+    // }
     SCR_MAP_BGN(WorldMapScript, map, itr, end, entry, IsWorldMap);
         itr->second->OnCreate(map);
     SCR_MAP_END;
