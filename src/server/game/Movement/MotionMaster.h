@@ -45,12 +45,18 @@ namespace Movement
 enum MotionMasterFlags : uint8
 {
     MOTIONMASTER_FLAG_NONE                          = 0x0,
-    MOTIONMASTER_FLAG_UPDATE                        = 0x1, // Update in progress
-    MOTIONMASTER_FLAG_STATIC_INITIALIZATION_PENDING = 0x2, // Static movement (MOTION_SLOT_DEFAULT) hasn't been initialized
-    MOTIONMASTER_FLAG_INITIALIZATION_PENDING        = 0x4, // MotionMaster is stalled until signaled
-    MOTIONMASTER_FLAG_INITIALIZING                  = 0x8, // MotionMaster is initializing
+    MOTIONMASTER_FLAG_UPDATE                        = 0x1, // Update in progress / 正在进行更新
+    // 该条目其实属于是 MovementGenerator 级别的，但是为什么会放在 MotionMaster 这种上级关系中呢？
+    //
+    // 这是因为，IdleMovementFactory 创建 IdleMovementGenerator 的实例是全局共享的，为了避免污染其他使用者的状态
+    // 管理逻辑，因此将该条目的使用放在了 MotionMaster 上；
+    //
+    // 我们也可以这么理解，这个条目其本质上和 MOVEMENTGENERATOR_FLAG_INITIALIZATION_PENDING 的使用是一致的；
+    MOTIONMASTER_FLAG_STATIC_INITIALIZATION_PENDING = 0x2, // Static movement (MOTION_SLOT_DEFAULT) hasn't been initialized / 静态移动(MOTION_SLOT_DEFAULT)尚未初始化
+    MOTIONMASTER_FLAG_INITIALIZATION_PENDING        = 0x4, // MotionMaster is stalled until signaled / 等待信号，初始化被阻塞
+    MOTIONMASTER_FLAG_INITIALIZING                  = 0x8, // MotionMaster is initializing / 正在初始化
 
-    MOTIONMASTER_FLAG_DELAYED = MOTIONMASTER_FLAG_UPDATE | MOTIONMASTER_FLAG_INITIALIZATION_PENDING
+    MOTIONMASTER_FLAG_DELAYED = MOTIONMASTER_FLAG_UPDATE | MOTIONMASTER_FLAG_INITIALIZATION_PENDING // Composite: update + initialization pending / 复合标志：更新中 + 初始化待处理
 };
 
 enum MotionMasterDelayedActionType : uint8
@@ -219,7 +225,9 @@ class TC_GAME_API MotionMaster
         void ClearBaseUnitStates();
 
         Unit* _owner;
+        // 当没有任何激活的移动动作时（_generators为空），它作为内省情况下移动动作生成器的补充，即 _generators 为空时；
         MovementGeneratorPointer _defaultGenerator;
+        // 所有已激活的移动动作生成器集合，按优先级/模式排序
         MotionMasterContainer _generators;
         MotionMasterUnitStatesContainer _baseUnitStatesMap;
         std::deque<DelayedAction> _delayedActions;

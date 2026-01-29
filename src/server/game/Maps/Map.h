@@ -654,6 +654,12 @@ class TC_GAME_API Map : public GridRefManager<NGridType>
         bool EnsureGridLoaded(Cell const&);
         void EnsureGridLoadedForActiveObject(Cell const&, WorldObject* object);
 
+        // NGridType(pNGridType2) ──────┐ 
+        //                              ▼ 
+        // NGridType(pNGridType0) ───► map(this)
+        //                              ▲ 
+        // NGridType(pNGridType1) ──────┘
+        //
         void buildNGridLinkage(NGridType* pNGridType) { pNGridType->link(this); }
 
         NGridType* getNGrid(uint32 x, uint32 y) const

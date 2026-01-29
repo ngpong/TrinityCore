@@ -217,36 +217,36 @@ enum DeathState
 
 enum UnitState : uint32
 {
-    UNIT_STATE_DIED                  = 0x00000001, // player has fake death aura
-    UNIT_STATE_MELEE_ATTACKING       = 0x00000002, // player is melee attacking someone
-    UNIT_STATE_CHARMED               = 0x00000004, // having any kind of charm aura on self
-    UNIT_STATE_STUNNED               = 0x00000008,
-    UNIT_STATE_ROAMING               = 0x00000010,
-    UNIT_STATE_CHASE                 = 0x00000020,
-    UNIT_STATE_FOCUSING              = 0x00000040,
-    UNIT_STATE_FLEEING               = 0x00000080,
-    UNIT_STATE_IN_FLIGHT             = 0x00000100, // player is in flight mode
-    UNIT_STATE_FOLLOW                = 0x00000200,
-    UNIT_STATE_ROOT                  = 0x00000400,
-    UNIT_STATE_CONFUSED              = 0x00000800,
-    UNIT_STATE_DISTRACTED            = 0x00001000,
-    UNIT_STATE_ISOLATED              = 0x00002000, // area auras do not affect other players
-    UNIT_STATE_ATTACK_PLAYER         = 0x00004000,
-    UNIT_STATE_CASTING               = 0x00008000,
-    UNIT_STATE_POSSESSED             = 0x00010000, // being possessed by another unit
-    UNIT_STATE_CHARGING              = 0x00020000,
-    UNIT_STATE_JUMPING               = 0x00040000,
-    UNIT_STATE_FOLLOW_FORMATION      = 0x00080000,
-    UNIT_STATE_MOVE                  = 0x00100000,
-    UNIT_STATE_ROTATING              = 0x00200000,
-    UNIT_STATE_EVADE                 = 0x00400000,
-    UNIT_STATE_ROAMING_MOVE          = 0x00800000,
-    UNIT_STATE_CONFUSED_MOVE         = 0x01000000,
-    UNIT_STATE_FLEEING_MOVE          = 0x02000000,
-    UNIT_STATE_CHASE_MOVE            = 0x04000000,
-    UNIT_STATE_FOLLOW_MOVE           = 0x08000000,
-    UNIT_STATE_IGNORE_PATHFINDING    = 0x10000000, // do not use pathfinding in any MovementGenerator
-    UNIT_STATE_FOLLOW_FORMATION_MOVE = 0x20000000,
+    UNIT_STATE_DIED                  = 0x00000001, // player has fake death aura / 伪死亡（假死）状态
+    UNIT_STATE_MELEE_ATTACKING       = 0x00000002, // player is melee attacking someone / 近战攻击中
+    UNIT_STATE_CHARMED               = 0x00000004, // having any kind of charm aura on self / 被魅惑控制
+    UNIT_STATE_STUNNED               = 0x00000008, // stunned / 眩晕
+    UNIT_STATE_ROAMING               = 0x00000010, // roaming (random/waypoint) / 漫游（随机/路径）
+    UNIT_STATE_CHASE                 = 0x00000020, // chasing target / 追击目标
+    UNIT_STATE_FOCUSING              = 0x00000040, // focusing target / 聚焦目标
+    UNIT_STATE_FLEEING               = 0x00000080, // fleeing / 逃跑
+    UNIT_STATE_IN_FLIGHT             = 0x00000100, // player is in flight mode / 飞行中（飞行点）
+    UNIT_STATE_FOLLOW                = 0x00000200, // following target / 跟随目标
+    UNIT_STATE_ROOT                  = 0x00000400, // rooted / 定身
+    UNIT_STATE_CONFUSED              = 0x00000800, // confused / 混乱
+    UNIT_STATE_DISTRACTED            = 0x00001000, // distracted / 分心
+    UNIT_STATE_ISOLATED              = 0x00002000, // area auras do not affect other players / 区域光环不影响他人
+    UNIT_STATE_ATTACK_PLAYER         = 0x00004000, // attacking player / 攻击玩家
+    UNIT_STATE_CASTING               = 0x00008000, // casting / 施法中
+    UNIT_STATE_POSSESSED             = 0x00010000, // being possessed by another unit / 被占据（附身）
+    UNIT_STATE_CHARGING              = 0x00020000, // charging / 冲锋中
+    UNIT_STATE_JUMPING               = 0x00040000, // jumping / 跳跃中
+    UNIT_STATE_FOLLOW_FORMATION      = 0x00080000, // following formation / 编队跟随
+    UNIT_STATE_MOVE                  = 0x00100000, // moving / 移动中
+    UNIT_STATE_ROTATING              = 0x00200000, // rotating / 旋转中
+    UNIT_STATE_EVADE                 = 0x00400000, // evading / 脱战回避
+    UNIT_STATE_ROAMING_MOVE          = 0x00800000, // roaming move / 漫游移动
+    UNIT_STATE_CONFUSED_MOVE         = 0x01000000, // confused move / 混乱移动
+    UNIT_STATE_FLEEING_MOVE          = 0x02000000, // fleeing move / 逃跑移动
+    UNIT_STATE_CHASE_MOVE            = 0x04000000, // chase move / 追击移动
+    UNIT_STATE_FOLLOW_MOVE           = 0x08000000, // follow move / 跟随移动
+    UNIT_STATE_IGNORE_PATHFINDING    = 0x10000000, // do not use pathfinding in any MovementGenerator / 禁用寻路
+    UNIT_STATE_FOLLOW_FORMATION_MOVE = 0x20000000, // formation move / 编队移动
 
     UNIT_STATE_ALL_STATE_SUPPORTED = UNIT_STATE_DIED | UNIT_STATE_MELEE_ATTACKING | UNIT_STATE_CHARMED | UNIT_STATE_STUNNED | UNIT_STATE_ROAMING | UNIT_STATE_CHASE
                                    | UNIT_STATE_FOCUSING | UNIT_STATE_FLEEING | UNIT_STATE_IN_FLIGHT | UNIT_STATE_FOLLOW | UNIT_STATE_ROOT | UNIT_STATE_CONFUSED
@@ -254,18 +254,19 @@ enum UnitState : uint32
                                    | UNIT_STATE_POSSESSED | UNIT_STATE_CHARGING | UNIT_STATE_JUMPING | UNIT_STATE_MOVE | UNIT_STATE_ROTATING
                                    | UNIT_STATE_EVADE | UNIT_STATE_ROAMING_MOVE | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE
                                    | UNIT_STATE_CHASE_MOVE | UNIT_STATE_FOLLOW_MOVE | UNIT_STATE_IGNORE_PATHFINDING | UNIT_STATE_FOLLOW_FORMATION_MOVE,
+    // supported states mask / 支持的状态集合
 
-    UNIT_STATE_UNATTACKABLE        = UNIT_STATE_IN_FLIGHT,
-    UNIT_STATE_MOVING              = UNIT_STATE_ROAMING_MOVE | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE | UNIT_STATE_CHASE_MOVE | UNIT_STATE_FOLLOW_MOVE | UNIT_STATE_FOLLOW_FORMATION_MOVE,
-    UNIT_STATE_CONTROLLED          = UNIT_STATE_CONFUSED | UNIT_STATE_STUNNED | UNIT_STATE_FLEEING,
-    UNIT_STATE_LOST_CONTROL        = UNIT_STATE_CONTROLLED | UNIT_STATE_POSSESSED | UNIT_STATE_JUMPING | UNIT_STATE_CHARGING,
-    UNIT_STATE_CANNOT_AUTOATTACK   = UNIT_STATE_CONTROLLED | UNIT_STATE_CHARGING | UNIT_STATE_CASTING,
-    UNIT_STATE_SIGHTLESS           = UNIT_STATE_LOST_CONTROL | UNIT_STATE_EVADE,
-    UNIT_STATE_CANNOT_TURN         = UNIT_STATE_LOST_CONTROL | UNIT_STATE_ROTATING | UNIT_STATE_FOCUSING,
-    UNIT_STATE_NOT_MOVE            = UNIT_STATE_ROOT | UNIT_STATE_STUNNED | UNIT_STATE_DIED | UNIT_STATE_DISTRACTED,
+    UNIT_STATE_UNATTACKABLE        = UNIT_STATE_IN_FLIGHT, // unattackable / 不可攻击
+    UNIT_STATE_MOVING              = UNIT_STATE_ROAMING_MOVE | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE | UNIT_STATE_CHASE_MOVE | UNIT_STATE_FOLLOW_MOVE | UNIT_STATE_FOLLOW_FORMATION_MOVE, // moving mask / 移动状态集合
+    UNIT_STATE_CONTROLLED          = UNIT_STATE_CONFUSED | UNIT_STATE_STUNNED | UNIT_STATE_FLEEING, // crowd-controlled / 被控状态集合
+    UNIT_STATE_LOST_CONTROL        = UNIT_STATE_CONTROLLED | UNIT_STATE_POSSESSED | UNIT_STATE_JUMPING | UNIT_STATE_CHARGING, // lost control / 失控状态集合
+    UNIT_STATE_CANNOT_AUTOATTACK   = UNIT_STATE_CONTROLLED | UNIT_STATE_CHARGING | UNIT_STATE_CASTING, // cannot auto attack / 不能自动攻击
+    UNIT_STATE_SIGHTLESS           = UNIT_STATE_LOST_CONTROL | UNIT_STATE_EVADE, // sightless / 失明/不可视
+    UNIT_STATE_CANNOT_TURN         = UNIT_STATE_LOST_CONTROL | UNIT_STATE_ROTATING | UNIT_STATE_FOCUSING, // cannot turn / 不能转向
+    UNIT_STATE_NOT_MOVE            = UNIT_STATE_ROOT | UNIT_STATE_STUNNED | UNIT_STATE_DIED | UNIT_STATE_DISTRACTED, // cannot move / 不能移动
 
-    UNIT_STATE_ALL_ERASABLE        = UNIT_STATE_ALL_STATE_SUPPORTED & ~(UNIT_STATE_IGNORE_PATHFINDING),
-    UNIT_STATE_ALL_STATE           = 0xffffffff
+    UNIT_STATE_ALL_ERASABLE        = UNIT_STATE_ALL_STATE_SUPPORTED & ~(UNIT_STATE_IGNORE_PATHFINDING), // erasable states / 可清除状态集合
+    UNIT_STATE_ALL_STATE           = 0xffffffff // all bits / 全部状态位
 };
 
 TC_GAME_API extern float baseMoveSpeed[MAX_MOVE_TYPE];
@@ -1898,6 +1899,14 @@ class TC_GAME_API Unit : public WorldObject
         SharedVisionList m_sharedVision;
         GameClient* _gameClientMovingMe;
 
+        // 移动控制器，负责管理该单位的所有移动生成器（MovementGenerator），也就是站立、巡逻、追击、跟随、回家、随
+        // 机游走、路径移动等动作逻辑的调度与更新。
+        //
+        // 具体作用可以从 MotionMaster 类接口看出：
+        //
+        // - 管理不同 MovementSlot 的移动生成器（Add/Remove/Clear/Update）。
+        // - 提供移动行为入口：MoveIdle/MoveTargetedHome/MoveRandom/MoveFollow/MoveChase 等。
+        // - 在 Unit::AddToWorld 时会进入世界并开始更新（i_motionMaster->AddToWorld() 在 Unit::AddToWorld 里被调用）。
         MotionMaster* i_motionMaster;
 
         uint32 m_reactiveTimer[MAX_REACTIVE];

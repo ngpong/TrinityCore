@@ -109,8 +109,10 @@ template <class T>
 void PoolGroup<T>::AddEntry(PoolObject& poolitem, uint32 maxentries)
 {
     if (poolitem.chance != 0 && maxentries == 1)
+        // 显式概率
         ExplicitlyChanced.push_back(poolitem);
     else
+        // 等概率
         EqualChanced.push_back(poolitem);
 }
 
@@ -247,22 +249,26 @@ void PoolGroup<T>::SpawnObject(ActivePoolData& spawns, uint32 limit, uint32 trig
     if (triggerFrom)
         DespawnObject(spawns, triggerFrom);
 
+    // limie: 这个 pool 允许同时存在（激活）的最大数量。
+    // GetActiveObjectCount: 这个 pool 已经生成了多少个对象。
     int32 count = limit - spawns.GetActiveObjectCount(poolId);
     if (count <= 0)
         return;
 
+    // count: 还差多少个要补到 pool 的上限
+
     PoolObjectList candidates;
     candidates.reserve(EqualChanced.size() + ExplicitlyChanced.size());
 
+    // candidates 候选者必须还没有被激活（生成）；
+    //
     // Add all not already active candidates.
     for (PoolObject& obj : EqualChanced)
         if (!spawns.IsActiveObject<T>(obj.guid))
             candidates.push_back(obj);
-
     for (PoolObject& obj : ExplicitlyChanced)
         if (!spawns.IsActiveObject<T>(obj.guid))
             candidates.push_back(obj);
-
     if (candidates.empty())
         return;
 
@@ -281,8 +287,11 @@ void PoolGroup<T>::SpawnObject(ActivePoolData& spawns, uint32 limit, uint32 trig
                 if (roll < 0)
                 {
                     rolledObjects.push_back(candidate);
+
+                    // 尾删
                     std::swap(candidate, candidates.back());
                     candidates.pop_back();
+
                     break; // We only roll for one chanced object.
                 }
             }
@@ -293,6 +302,7 @@ void PoolGroup<T>::SpawnObject(ActivePoolData& spawns, uint32 limit, uint32 trig
     uint32 remainingCount = count - rolledObjects.size();
     if (remainingCount > 0 && !candidates.empty())
     {
+        // 随机地把 candidates 缩到指定大小（通常等价于随机挑 N 个保留）
         if (candidates.size() > remainingCount)
             Trinity::Containers::RandomResize(candidates, remainingCount);
 
@@ -302,6 +312,7 @@ void PoolGroup<T>::SpawnObject(ActivePoolData& spawns, uint32 limit, uint32 trig
     // Spawn all the objects we've selected.
     for (PoolObject& objToSpawn : rolledObjects)
     {
+        // 设置当前对象为活动（激活/生成）状态
         spawns.ActivateObject<T>(objToSpawn.guid, poolId);
         Spawn1Object(&objToSpawn);
     }
@@ -313,6 +324,8 @@ void PoolGroup<Creature>::Spawn1Object(PoolObject* obj)
 {
     if (CreatureData const* data = sObjectMgr->GetCreatureData(obj->guid))
     {
+        // 这里根据生物的坐标计算了所处 cell 的位置，然后填充了 _mapObjectGuidsStore；
+        // _mapObjectGuidsStore 意为在哪张map的哪个cellid上生成了这个生物；
         sObjectMgr->AddCreatureToGrid(obj->guid, data);
 
         // Spawn if necessary (loaded grids only)

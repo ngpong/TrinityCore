@@ -36,6 +36,7 @@ class FactoryHolder
         explicit FactoryHolder(Key const& k) : _key(k) { }
         virtual ~FactoryHolder() { }
 
+        // 此函数会在 CreatureAIRegistry.cpp::Initialize 被调用
         void RegisterSelf() { FactoryHolderRegistry::instance()->InsertItem(this, _key); }
 
         /// Abstract Factory create method

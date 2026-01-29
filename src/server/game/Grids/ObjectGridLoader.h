@@ -32,9 +32,14 @@ class TC_GAME_API ObjectGridLoader
     friend class ObjectWorldLoader;
 
     public:
-        ObjectGridLoader(NGridType& grid, Map* map, Cell const& cell)
-            : i_cell(cell), i_grid(grid), i_map(map), i_gameObjects(0), i_creatures(0), i_corpses (0)
-            { }
+        ObjectGridLoader(NGridType& grid, Map* map, Cell const& cell):
+            i_cell(cell),
+            i_grid(grid),
+            i_map(map),
+            i_gameObjects(0),
+            i_creatures(0),
+            i_corpses(0) 
+        {}
 
         void Visit(GameObjectMapType &m);
         void Visit(CreatureMapType &m);

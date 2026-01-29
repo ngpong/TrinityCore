@@ -23,7 +23,8 @@
 
 //=====================================================
 
-template <class TO, class FROM> class Reference : public LinkedListElement
+template <class TO, class FROM> 
+class Reference : public LinkedListElement
 {
     private:
         TO* iRefTo;

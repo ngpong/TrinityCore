@@ -54,14 +54,16 @@ inline void Cell::Visit(CellCoord const& standing_cell, TypeContainerVisitor<T, 
     Visit(standing_cell, visitor, map, obj.GetPositionX(), obj.GetPositionY(), radius + obj.GetCombatReach());
 }
 
+// 以 standing_cell 为中心、半径 radius 的范围内，把可能相关的 cell 都遍历一遍，对每个 cell 调
+// 用 map.Visit(cell, visitor)，让 visitor 去处理该 cell 里的对象。
 template<class T, class CONTAINER>
 inline void Cell::Visit(CellCoord const& standing_cell, TypeContainerVisitor<T, CONTAINER>& visitor, Map& map, float x_off, float y_off, float radius) const
 {
-    // 计算初始单元格是否合法
+    // standing_cell 坐标合法性检查
     if (!standing_cell.IsCoordValid())
         return;
 
-    // 如果 radius 可视范围小于 0，则直接访问当前单元格内的对象
+    // 如果 radius 可视范围小于 0；只访问当前 cell
     //no jokes here... Actually placing ASSERT() here was good idea, but
     //we had some problems with DynamicObjects, which pass radius = 0.0f (DB issue?)
     //maybe it is better to just return when radius <= 0.0f?
@@ -70,15 +72,16 @@ inline void Cell::Visit(CellCoord const& standing_cell, TypeContainerVisitor<T, 
         map.Visit(*this, visitor);
         return;
     }
-    // 计算一些边界条件
+    // 计算一些边界条件；防御式编程，避免半径特别大导致 area 覆盖过多 cell，遍历爆炸。
     //lets limit the upper value for search radius
     if (radius > SIZE_OF_GRIDS)
         radius = SIZE_OF_GRIDS;
 
-    // 依据 Object 所在的坐标(x_off, y_off)并结合可视范围radius计算其所在单元格其周边范围内的单元格形成一个区域，这里使用了
-    // 最大顶点和最小顶点来表示一整个区域
+    // 依据 Object 所在的坐标(x_off, y_off)并结合可视范围radius计算其所在单元格其周边范围内的单元格形成一个区域；
+    // 这里使用了最大顶点(被半径影响到的最大 cellCoord)和最小顶点(low_bound，被半径影响到的最小 cellCoord)来表示一整个区域；
     //lets calculate object coord offsets from cell borders.
     CellArea area = Cell::CalculateCellArea(x_off, y_off, radius);
+    // 如果 radius 在当前格内就能覆盖完，那么只 visit 当前格。
     //if radius fits inside standing cell
     if (!area)
     {
@@ -101,12 +104,12 @@ inline void Cell::Visit(CellCoord const& standing_cell, TypeContainerVisitor<T, 
         return;
     }
 
-    // 先visit当前的单元格
+    // 永远先访问 standing cell
     //ALWAYS visit standing cell first!!! Since we deal with small radiuses
     //it is very essential to call visitor for standing cell firstly...
     map.Visit(*this, visitor);
 
-    // 然后visit范围内的其它单元格
+    // 遍历包围盒内所有 cell（除了 standing cell），并按 nocreate 规则访问
     // loop the cell range
     for (uint32 x = area.low_bound.x_coord; x <= area.high_bound.x_coord; ++x)
     {

@@ -194,8 +194,14 @@ void ThreatReference::HeapNotifyDecreased()
     return true;
 }
 
-ThreatManager::ThreatManager(Unit* owner) : _owner(owner), _ownerCanHaveThreatList(false), _needClientUpdate(false), _updateTimer(THREAT_UPDATE_INTERVAL),
-    _sortedThreatList(std::make_unique<Heap>()), _currentVictimRef(nullptr), _fixateRef(nullptr)
+ThreatManager::ThreatManager(Unit* owner):
+    _owner(owner),
+    _ownerCanHaveThreatList(false),
+    _needClientUpdate(false),
+    _updateTimer(THREAT_UPDATE_INTERVAL),
+    _sortedThreatList(std::make_unique<Heap>()),
+    _currentVictimRef(nullptr),
+    _fixateRef(nullptr)
 {
     for (int8 i = 0; i < MAX_SPELL_SCHOOL; ++i)
         _singleSchoolModifiers[i] = 1.0f;

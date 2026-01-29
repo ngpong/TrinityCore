@@ -207,13 +207,18 @@ void Map::LoadVMap(int gx, int gy)
 
 void Map::LoadMap(int gx, int gy, bool reload)
 {
+    // 如果存在实例ID（副本）
     if (i_InstanceId != 0)
     {
         if (GridMaps[gx][gy])
             return;
 
+        // m_parentMap 是地图实例在构造时传入的
+
         // load grid map for base map
         if (!m_parentMap->GridMaps[gx][gy])
+            // 此处相当于把 gx 和 gy 重新转化为 NGrid 的逻辑坐标；
+            // 然后依据这个坐标，重新递归调用了这个函数；
             m_parentMap->EnsureGridCreated(GridCoord((MAX_NUMBER_OF_GRIDS - 1) - gx, (MAX_NUMBER_OF_GRIDS - 1) - gy));
 
         ((MapInstanced*)(m_parentMap))->AddGridMapReference(GridCoord(gx, gy));
@@ -239,9 +244,12 @@ void Map::LoadMap(int gx, int gy, bool reload)
     TC_LOG_DEBUG("maps", "Loading map {}", fileName);
     // loading data
     GridMaps[gx][gy] = new GridMap();
+    // 此处根据地图文件 filename 开始加载地图数据；
+    // 包括：区域信息、高度信息、液体信息、洞穴信息
     if (!GridMaps[gx][gy]->loadData(fileName.c_str()))
         TC_LOG_ERROR("maps", "Error loading map file: \n {}\n", fileName);
 
+    // 遍历所有派生自 MapScript 的脚本，找到于当前 map 的 id 相匹配的脚本并调用脚本的 OnLoadGridMap 函数；
     sScriptMgr->OnLoadGridMap(this, GridMaps[gx][gy], gx, gy);
 }
 
@@ -516,18 +524,26 @@ void Map::EnsureGridCreated_i(GridCoord const& p)
     {
         TC_LOG_DEBUG("maps", "Creating grid[{}, {}] for map {} instance {}", p.x_coord, p.y_coord, GetId(), i_InstanceId);
 
+        // p.x_coord*MAX_NUMBER_OF_GRIDS + p.y_coord --> NGrid_id
+        // p.x_coord, p.y_coord --> 网格的坐标
         setNGrid(new NGridType(p.x_coord*MAX_NUMBER_OF_GRIDS + p.y_coord, p.x_coord, p.y_coord, i_gridExpiry, sWorld->getBoolConfig(CONFIG_GRID_UNLOAD)),
             p.x_coord, p.y_coord);
 
-        // build a linkage between this map and NGridType
+        // build a linkage between this map(TO) and NGridType(FROM)
         buildNGridLinkage(getNGrid(p.x_coord, p.y_coord));
 
+        // 设置 GRID 的默认状态为挂起
         getNGrid(p.x_coord, p.y_coord)->SetGridState(GRID_STATE_IDLE);
 
+        // 此处取的是一个翻转坐标；
+        // 因为 p.x_coord/p.y_coord 这套坐标是 Trinity 内部 NGrid 的逻辑坐标；
+        // 而 GridMaps[gx][gy]/LoadMapAndVMap(gx, gy) 这套索引对应的是地形块/碰撞块文件的编号方式，它的坐标原点在"另一角"；
+        //
         //z coord
         int gx = (MAX_NUMBER_OF_GRIDS - 1) - p.x_coord;
         int gy = (MAX_NUMBER_OF_GRIDS - 1) - p.y_coord;
 
+        // 此处读取地图、模型文件加载一些静态数据
         if (!GridMaps[gx][gy])
             LoadMapAndVMap(gx, gy);
     }
@@ -545,6 +561,7 @@ void Map::EnsureGridLoadedForActiveObject(Cell const& cell, WorldObject* object)
     {
         TC_LOG_DEBUG("maps", "Active object {} triggers loading of grid [{}, {}] on map {}", object->GetGUID().ToString(), cell.GridX(), cell.GridY(), GetId());
         ResetGridExpiry(*grid, 0.1f);
+        // 设置网格状态为已激活
         grid->SetGridState(GRID_STATE_ACTIVE);
     }
 }
@@ -562,9 +579,33 @@ bool Map::EnsureGridLoaded(Cell const& cell)
 
         grid->setGridObjectDataLoaded(true);
 
+        // NGridType ► i_cells ► i_container 由下面的函数填充:
+        // • Map::AddToGrid
+        // • Map::SwitchGridContainers
+        //
+        // NGridType ► i_cells ► i_objects 由下面的函数填充:
+        // • WorldObject::SetMap
+        // • Map::AddToGrid
+        // • Map::SwitchGridContainers
+        //
+        // Map::AddToGrid 由下面的函数调用：
+        // • Map::DynamicObjectCellRelocation
+        // • Map::GameObjectCellRelocation
+        // • Map::CreatureCellRelocation
+        // • Map::PlayerRelocation
+        // • Map::AddToMap
+        // • Map::AddPlayerToMap
+        //
+        // Map::SwitchGridContainers 由下面的函数调用：
+        // • Map::RemoveAllObjectsInRemoveList
         ObjectGridLoader loader(*grid, this, cell);
+        // 该函数会遍历网格 grid 内的所有 8x8 的 cell；
+        // 每个 cell 内都拥有两个，以类型作为键 GridRefManager<T> 链表作为值的容器；
+        // 遍历容器的内容，对于每个可选值，使用 _mapObjectGuidsStore 创建新的对象；
+        // 新的对象链接至容器中；
         loader.LoadN();
 
+        // 仅针对 GameObject
         Balance();
         return true;
     }
@@ -664,6 +705,7 @@ void Map::InitializeObject(GameObject* obj)
 template<class T>
 bool Map::AddToMap(T* obj)
 {
+    // 防止重复进地图
     /// @todo Needs clean up. An object should not be added to map twice.
     if (obj->IsInWorld())
     {
@@ -672,6 +714,7 @@ bool Map::AddToMap(T* obj)
         return true;
     }
 
+    // 依据世界坐标计算网格坐标
     CellCoord cellCoord = Trinity::ComputeCellCoord(obj->GetPositionX(), obj->GetPositionY());
     //It will create many problems (including crashes) if an object is not added to grid after creation
     //The correct way to fix it is to make AddToMap return false and delete the object if it is not added to grid
@@ -683,11 +726,15 @@ bool Map::AddToMap(T* obj)
         return false; //Should delete object
     }
 
+    // Cell 的构造函数会依据传入的 cellCoord 转化成 gridCoord；
+    // 也就是说这个类里面即拥有 cell 坐标还拥有 grid 坐标；
     Cell cell(cellCoord);
+    // 下面的两个函数会确保网格已创建/网格内的生物已创建；
     if (obj->isActiveObject())
         EnsureGridLoadedForActiveObject(cell, obj);
     else
         EnsureGridCreated(GridCoord(cell.GridX(), cell.GridY()));
+    // 对象链接至网格
     AddToGrid(obj, cell);
     TC_LOG_DEBUG("maps", "Object {} enters grid[{}, {}]", obj->GetGUID().ToString(), cell.GridX(), cell.GridY());
 
@@ -3649,6 +3696,7 @@ void Map::AddObjectToRemoveList(WorldObject* obj)
 
     obj->CleanupsBeforeDelete(false);                            // remove or simplify at least cross referenced links
 
+    // i_objectsToRemove 中的实例，会在网格被卸载或者是 map 的下一次 tick 的时候被彻底移除
     i_objectsToRemove.insert(obj);
 }
 

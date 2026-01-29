@@ -49,6 +49,8 @@ class ObjectRegistry final
             return itr->second.get();
         }
 
+        // FactoryHolder::RegisterSelf 会调用到这个函数；
+        //
         /// Inserts a registry item
         bool InsertItem(T* obj, Key const& key, bool force = false)
         {

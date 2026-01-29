@@ -300,12 +300,29 @@ bool DispelableAura::RollDispel() const
 }
 
 Unit::Unit(bool isWorldObject) :
-    WorldObject(isWorldObject), m_lastSanctuaryTime(0), LastCharmerGUID(), movespline(new Movement::MoveSpline()),
-    m_ControlledByPlayer(false), m_AutoRepeatFirstCast(false), m_procDeep(0), m_transformSpell(0),
-    m_removedAurasCount(0), m_charmer(nullptr), m_charmed(nullptr),
-    i_motionMaster(new MotionMaster(this)), m_regenTimer(0), m_vehicle(nullptr), m_vehicleKit(nullptr),
-    m_unitTypeMask(UNIT_MASK_NONE), m_Diminishing(), m_combatManager(this), m_threatManager(this),
-    m_aiLocked(false), m_comboTarget(nullptr), m_comboPoints(0), _spellHistory(new SpellHistory(this))
+    WorldObject(isWorldObject),
+    m_lastSanctuaryTime(0),
+    LastCharmerGUID(),
+    movespline(new Movement::MoveSpline()),
+    m_ControlledByPlayer(false),
+    m_AutoRepeatFirstCast(false),
+    m_procDeep(0),
+    m_transformSpell(0),
+    m_removedAurasCount(0),
+    m_charmer(nullptr),
+    m_charmed(nullptr),
+    i_motionMaster(new MotionMaster(this)),
+    m_regenTimer(0),
+    m_vehicle(nullptr),
+    m_vehicleKit(nullptr),
+    m_unitTypeMask(UNIT_MASK_NONE),
+    m_Diminishing(),
+    m_combatManager(this),
+    m_threatManager(this),
+    m_aiLocked(false),
+    m_comboTarget(nullptr),
+    m_comboPoints(0),
+    _spellHistory(new SpellHistory(this))
 {
     m_objectType |= TYPEMASK_UNIT;
     m_objectTypeId = TYPEID_UNIT;
@@ -3240,11 +3257,14 @@ void Unit::ProcessPositionDataChanged(PositionFullTerrainStatus const& data)
     ProcessTerrainStatusUpdate(oldLiquidStatus, data.liquidInfo);
 }
 
+// 玩家控制的单位（通常就是玩家自己）进/出水体时，把不该继续存在的光环移掉；
+// 如果当前水体（液体类型）自带一个水里效果法术，就自动给你上/换这个效果。
 void Unit::ProcessTerrainStatusUpdate(ZLiquidStatus /*oldLiquidStatus*/, Optional<LiquidData> const& newLiquidData)
 {
     if (!IsControlledByPlayer())
         return;
 
+    // 根据是否在水里移除对应的可中断光环
     // remove appropriate auras if we are swimming/not swimming respectively
     if (IsInWater())
         RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_NOT_ABOVEWATER);
@@ -3257,13 +3277,17 @@ void Unit::ProcessTerrainStatusUpdate(ZLiquidStatus /*oldLiquidStatus*/, Optiona
         curLiquid = sLiquidTypeStore.LookupEntry(newLiquidData->entry);
     if (curLiquid != _lastLiquid)
     {
+        // 检测液体类型变化；
+        // 从 A 水换到 B 水，或者从水里到陆地（curLiquid 变 null），都会进入
         if (_lastLiquid && _lastLiquid->SpellID)
+            // 移除旧液体附带的法术光环；
             RemoveAurasDueToSpell(_lastLiquid->SpellID);
         Player* player = GetCharmerOrOwnerPlayerOrPlayerItself();
 
         // Set _lastLiquid before casting liquid spell to avoid infinite loops
         _lastLiquid = curLiquid;
 
+        // 给当前液体附带的法术上效果
         if (curLiquid && curLiquid->SpellID && (!player || !player->IsGameMaster()))
             CastSpell(this, curLiquid->SpellID, true);
     }
@@ -4079,8 +4103,10 @@ void Unit::RemoveNotOwnSingleTargetAuras(uint32 newPhase)
     }
 }
 
+// 按中断标记批量移光环 + 中断引导法术
 void Unit::RemoveAurasWithInterruptFlags(uint32 flag, uint32 except)
 {
+    // m_interruptMask 是个缓存，表示当前身上是否存在带某些 interrupt-flag 的光环/法术
     if (!(m_interruptMask & flag))
         return;
 

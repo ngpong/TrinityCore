@@ -280,6 +280,7 @@ void Creature::AddToWorld()
     ///- Register the creature for guid lookup
     if (!IsInWorld())
     {
+        // Map::_objectsStore 用于保存地图内创建的对象 
         GetMap()->GetObjectsStore().Insert<Creature>(GetGUID(), this);
         if (m_spawnId)
             GetMap()->GetCreatureBySpawnIdStore().insert(std::make_pair(m_spawnId, this));
@@ -287,11 +288,14 @@ void Creature::AddToWorld()
         TC_LOG_DEBUG("entities.unit", "Adding creature {} with DBGUID {} to world in map {}", GetGUID().ToString(), m_spawnId, GetMap()->GetId());
 
         Unit::AddToWorld();
+        // 如果有编队数据，查找并加入编队
         SearchFormation();
+        // 初始化 AI（加载脚本、状态机等）
         AIM_Initialize();
         if (IsVehicle())
             GetVehicleKit()->Install();
 
+        // 此处只有 Creature 的位置是在特定区域内才会拥有 ZoneScript
         if (GetZoneScript())
             GetZoneScript()->OnCreatureCreate(this);
     }
@@ -1005,8 +1009,15 @@ bool Creature::AIM_Destroy()
 
 bool Creature::AIM_Create(CreatureAI* ai /*= nullptr*/)
 {
+    // 此处和移动生成器相关的；其中还包含了队伍的逻辑（应该是队员可跟随队长之类的）；
     Motion_Initialize();
 
+    // 此处选择一个合适的 AI 绑定到单位(Unit)；
+    // 填充了 i_AIs，意味着一个单位可以拥有多个 AI 逻辑；
+    // 设置了 i_AI，默认是 i_AIs 的顶部条目；
+    //
+    // 选择的AI大致从两个方向上选择，第一个是 CreatureAIRegistry.cpp 中的那些东西；
+    // 第二个是 scripts/ 目录下的脚本
     SetAI(ai ? ai : FactorySelector::SelectAI(this));
 
     return true;
@@ -1017,6 +1028,8 @@ bool Creature::AIM_Initialize(CreatureAI* ai)
     if (!AIM_Create(ai))
         return false;
 
+    // 调用 AI 实现的 InitializeAI 函数；
+    // AI 在上一步 AIM_Create 时就创建了；
     AI()->InitializeAI();
     if (GetVehicleKit())
         GetVehicleKit()->Reset();
@@ -1025,10 +1038,13 @@ bool Creature::AIM_Initialize(CreatureAI* ai)
 
 void Creature::Motion_Initialize()
 {
+    // 如果是编队成员
     if (m_formation)
     {
+        // 如果是编队队长
         if (m_formation->GetLeader() == this)
             m_formation->FormationReset(false);
+        // 不是队长且编队已成形，直接 MoveIdle() 并返回
         else if (m_formation->IsFormed())
         {
             GetMotionMaster()->MoveIdle(); // wait the order of leader
@@ -1036,6 +1052,7 @@ void Creature::Motion_Initialize()
         }
     }
 
+    // 此处可能会出现重复的调用；因为在 Creature::AddToWorld 已经被调用过了一次； 
     GetMotionMaster()->Initialize();
 }
 
@@ -1045,6 +1062,9 @@ bool Creature::Create(ObjectGuid::LowType guidlow, Map* map, uint32 phaseMask, u
     SetMap(map);
     SetPhaseMask(phaseMask, false);
 
+    // 如果不是动态生成（比如 DB 固定刷点那种），就启用“兼容传统重生/刷怪行为”的模式。
+    // 动态生成的 creature（脚本临时刷、事件刷等）往往不走同一套重生/存储逻辑。
+    //
     // Set if this creature can handle dynamic spawns
     if (!dynamic)
         SetRespawnCompatibilityMode();
@@ -1067,6 +1087,12 @@ bool Creature::Create(ObjectGuid::LowType guidlow, Map* map, uint32 phaseMask, u
         TC_LOG_ERROR("entities.unit", "Creature::Create(): given coordinates for creature (guidlow {}, entry {}) are not valid (X: {}, Y: {}, Z: {}, O: {})", guidlow, entry, pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation());
         return false;
     }
+    // 立刻计算地形/区域信息，并触发位置数据更新
+    //
+    // 这块是一个提前把位置相关的派生数据算好的步骤，典型包括：
+    // • areaId/zoneId
+    // • 水面/室内/高度（不同版本实现不一样）
+    // • 可能还包括 navmesh/liquid_status 等
     {
         // area/zone id is needed immediately for ZoneScript::GetCreatureEntry hook before it is known which creature template to load (no model/scale available yet)
         PositionFullTerrainStatus terrainStatus;
@@ -1074,16 +1100,33 @@ bool Creature::Create(ObjectGuid::LowType guidlow, Map* map, uint32 phaseMask, u
         ProcessPositionDataChanged(terrainStatus);
     }
 
+    // 这是服务器侧可见性控制的一部分。
+    // 允许幽灵玩家仍能看到某些单位。
+    //
     // Allow players to see those units while dead, do it here (mayby altered by addon auras)
     if (cinfo->type_flags & CREATURE_TYPE_FLAG_VISIBLE_TO_GHOSTS)
         m_serverSideVisibility.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_ALIVE | GHOST_VISIBILITY_GHOST);
 
+    // 会做大量工作（不同版本略有差异），比如：
+    // • 绑定 GUID/entry
+    // • 加载模型、scale、faction、npc flags、基础属性
+    // • 应用 DB spawn 数据（CreatureData* data）比如：
+    // • spawnId/movement type
+    // • spawnedByEvent/spawnGroup
+    // • 默认装备、附加 flags
+    // • vehicle 相关初始化（vehId）
     if (!CreateFromProto(guidlow, entry, data, vehId))
         return false;
 
+    // 副本 Boss 的特殊重生规则
     if (GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_DUNGEON_BOSS && map->IsDungeon())
+        // 0 在这里被用作特殊语义：除非显式覆盖，否则不重生。
+        // 副本 boss 通常不希望像普通怪一样刷新。
         m_respawnDelay = 0; // special value, prevents respawn for dungeon bosses unless overridden
 
+    // 尸体消失时间：按 rank 决定；
+    // 不同稀有度/精英度尸体保留时间不同，配置项来自 sWorld；
+    // 这会影响玩家多久还能摸尸体/看到尸体；
     switch (GetCreatureTemplate()->rank)
     {
         case CREATURE_ELITE_RARE:
@@ -1105,21 +1148,25 @@ bool Creature::Create(ObjectGuid::LowType guidlow, Map* map, uint32 phaseMask, u
 
     LastUsedScriptID = GetScriptId();
 
+    // 灵魂医师这类 NPC 往往要求：幽灵必可见 + 幽灵也必能看到它
     if (IsSpiritHealer() || IsSpiritGuide() || (GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_GHOST_VISIBILITY))
     {
         m_serverSideVisibility.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_GHOST);
         m_serverSideVisibilityDetect.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_GHOST);
     }
-
+    
+    // 忽略寻路：常用于定点 NPC、装饰单位、或者特殊脚本怪（不希望寻路系统干预）
     if (GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_IGNORE_PATHFINDING)
         AddUnitState(UNIT_STATE_IGNORE_PATHFINDING);
 
+    // 免疫击退：直接在免疫表里把击退效果屏蔽掉（两个 effect_id）
     if (GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_IMMUNITY_KNOCKBACK)
     {
         ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
         ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK_DEST, true);
     }
 
+    // 初始化仇恨系统
     GetThreatManager().Initialize();
 
     return true;
@@ -1606,15 +1653,18 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
         const auto creatureBounds = map->GetCreatureBySpawnIdStore().equal_range(spawnId);
         std::vector <Creature*> despawnList;
 
+        // 如果存在多个相同 spawnId 的实例
         if (creatureBounds.first != creatureBounds.second)
         {
             for (auto itr = creatureBounds.first; itr != creatureBounds.second; ++itr)
             {
+                // 正在存活，则停止生成新的实例
                 if (itr->second->IsAlive())
                 {
                     TC_LOG_DEBUG("maps", "Would have spawned {} but {} already exists", spawnId, creatureBounds.first->second->GetGUID().ToString());
                     return false;
                 }
+                // 已经是死亡的实例
                 else
                 {
                     despawnList.push_back(itr->second);
@@ -1622,6 +1672,9 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
                 }
             }
 
+            // 把对象追加至移除列表；
+            // 下面的函数会做一些对象移除后的判断、通知逻辑；
+            // 移除操作会安排在下一次 tick 上；
             for (Creature* despawnCreature : despawnList)
             {
                 despawnCreature->AddObjectToRemoveList();
@@ -1644,14 +1697,18 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
     m_wanderDistance = data->wander_distance;
     m_respawnDelay = data->spawntimesecs;
 
+    // 创建 creature；初始化一堆东西
     if (!Create(map->GenerateLowGuid<HighGuid::Unit>(), map, data->phaseMask, data->id, data->spawnPoint, data, 0U , !m_respawnCompatibilityMode))
         return false;
 
+    // Home 用于 AI 回家、脱战复位、定点巡逻起点等
     //We should set first home position, because then AI calls home movement
     SetHomePosition(*this);
 
+    // 存活状态
     m_deathState = ALIVE;
 
+    // 重生时间
     m_respawnTime = GetMap()->GetCreatureRespawnTime(m_spawnId);
 
     if (!m_respawnTime && !map->IsSpawnGroupActive(data->spawnGroupData->groupId))
@@ -1686,6 +1743,7 @@ bool Creature::LoadFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, 
             m_deathState = DEAD;
         }
 
+        // 飞行单位的重生地 z 轴修正，避免悬空高度不合理
         if (CanFly())
         {
             float tz = map->GetHeight(GetPhaseMask(), data->spawnPoint, true, MAX_FALL_DISTANCE);

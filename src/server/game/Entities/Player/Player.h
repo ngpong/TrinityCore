@@ -2096,6 +2096,26 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         uint8 GetStartLevel(uint8 playerClass) const;
         WorldLocation GetStartPosition() const;
 
+        // m_clientGUIDs 记录的是：该玩家客户端已知（client-known）且当前应存在的对象 GUID 集合。
+        //
+        // 更详细地说：对当前 Player 而言，服务器曾经向该玩家发送过对象进入其客户端世界所需的创建/初始同步数据
+        // ，因此该玩家客户端应该已经创建并维护该对象；同时服务器认为该对象目前仍应存在于该玩家的客户端世界中（
+        // 尚未对该玩家发送 Destroy/Remove）。
+        //
+        // 可以把玩家客户端想象成一个小型的本地世界，里面有一堆实体（GUID）。
+        // 服务器主要通过两类消息影响这个本地世界的实体集合：
+        // • Create/Add/Update：让客户端创建并开始维护一个实体（或补齐初始状态）
+        // • Destroy/Remove：让客户端把实体从本地世界删掉
+        // 那么服务器需要一份账本：我已经让这个玩家客户端创建了哪些 GUID？哪些还没被我要求移除？这份账本就是 m_clientGUIDs。
+        //
+        // 注意：m_clientGUIDs 不完全等价于“此刻对该玩家可见/可检测的对象集合”，但通常近似，主要因为：
+        // 1) 可见性对账与网络同步是离散 tick/分批执行的，存在短暂滞后窗口：对象可能已进入/离开视野，但 create/destroy
+        //    还没来得及发送与更新集合；因此它更像是一份“对账后的客户端状态缓存”。
+        // 2) 一个对象即便在玩家的附近，也不意味着对象对于该玩家是可见/可检测的；这是一个服务器权威的问题，客户端所展现
+        //    的结果永远需要与服务器对齐；一个物理意义上存在于玩家附近的对象可能由于总总原因（比如该对象使用了隐身魔法或
+        //    者是视线被遮挡等等）导致客户端不可见，因此客户端无需创建该对象，即：不需要将对象的 GUID 缓存在 m_clientGUIDs 内
+        //    ；因此，我们无法使用该成员来完成一次类似于"查找玩家附近的所有对象" 的操作。
+        //
         // currently visible objects at player client
         GuidUnorderedSet m_clientGUIDs;
 

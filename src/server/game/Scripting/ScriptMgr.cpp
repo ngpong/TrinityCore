@@ -1749,7 +1749,14 @@ CreatureAI* ScriptMgr::GetCreatureAI(Creature* creature)
 {
     ASSERT(creature);
 
+    // 如果配置了脚本 id 且对应 id 的脚本已经完成注册流程(大致上可认为是通过调用 RegisterCreatureAI 宏来注册的)；
+    //
+    // CreatureScript *tmpscript = ScriptRegistry<CreatureScript>::Instance()->GetScriptById(creature->GetScriptId());
+    // if (!tmpscript)
+    //   return nullptr;
     GET_SCRIPT_RET(CreatureScript, creature->GetScriptId(), tmpscript, nullptr);
+
+    // 则获取对应脚本类的 GetAI 函数
     return tmpscript->GetAI(creature);
 }
 

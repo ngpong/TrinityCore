@@ -88,6 +88,7 @@ void ObjectGridLoader::SetObjectCell(MapObject* obj, CellCoord const& cellCoord)
 template <class T>
 void AddObjectHelper(CellCoord &cell, GridRefManager<T> &m, uint32 &count, Map* map, T *obj)
 {
+    // 使得 obj 链接至 cell 中保存的类型链表(TypeMapContainer<T>)中
     obj->AddToGrid(m);
     ObjectGridLoader::SetObjectCell(obj, cell);
     obj->AddToWorld();

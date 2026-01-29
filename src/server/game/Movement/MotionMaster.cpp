@@ -124,6 +124,7 @@ void MotionMaster::AddToWorld()
     RemoveFlag(MOTIONMASTER_FLAG_INITIALIZATION_PENDING);
 
     DirectInitialize();
+    // 处理延迟添加的移动生成器
     ResolveDelayedActions();
 
     RemoveFlag(MOTIONMASTER_FLAG_INITIALIZING);
@@ -346,6 +347,7 @@ void MotionMaster::Add(MovementGenerator* movement, MovementSlot slot/* = MOTION
         return;
     }
 
+    // 在更新中 或者 是还未初始化
     if (HasFlag(MOTIONMASTER_FLAG_DELAYED))
     {
         DelayedActionDefine action = [this, movement, slot]()
@@ -1108,6 +1110,8 @@ void MotionMaster::Remove(MotionMasterContainer::iterator iterator, bool active,
 
 void MotionMaster::Pop(bool active, bool movementInform)
 {
+    // movementInform: 不发AI/脚本通知
+
     if (!_generators.empty())
         Remove(_generators.begin(), active, movementInform);
 }
@@ -1118,6 +1122,9 @@ void MotionMaster::DirectInitialize()
     DirectClearDefault();
     DirectClear();
 
+    // 依据 _owner 中实现的 GetDefaultMovementType 得到默认移动类型；
+    // 依据移动类型，调用 FactorySelector::SelectMovementGenerator 函数创建移动生成器；
+    // 使用这个生成器填充 _defaultGenerator 成员；
     InitializeDefault();
 }
 

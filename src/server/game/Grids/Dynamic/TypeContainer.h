@@ -35,6 +35,17 @@
  * By itself its meaningless but collaborate along with TypeContainers,
  * it become the most powerfully container in the whole system.
  */
+// Player0 ──────────────────┐ 
+//                           ▼ 
+// Player1 ───► GridRefManager<Player>(_element)
+//                           ▲ 
+// Player2 ──────────────────┘
+//
+// Creature0 ────────────────┐ 
+//                           ▼ 
+// Creature1 ───► GridRefManager<Creature>(_element)
+//                           ▲ 
+// Creature2 ────────────────┘
 template<class OBJECT>
 struct ContainerMapList
 {

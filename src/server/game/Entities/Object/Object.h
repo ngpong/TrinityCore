@@ -354,7 +354,7 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
         Position GetRandomNearPosition(float radius);
         void GetContactPoint(WorldObject const* obj, float& x, float& y, float& z, float distance2d = CONTACT_DISTANCE) const;
 
-        virtual float GetCombatReach() const { return 0.0f; } // overridden (only) in Unit
+        virtual float GetCombatReach() const { return 0.0f; } // overridden (only) in Unit; UNIT_FIELD_COMBATREACH
         void UpdateGroundPositionZ(float x, float y, float &z) const;
         void UpdateAllowedPositionZ(float x, float y, float &z, float* groundZ = nullptr) const;
 
@@ -607,6 +607,37 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
         Transport* m_transport;
 
         virtual void ProcessPositionDataChanged(PositionFullTerrainStatus const& data);
+        // areaId 代表你当前精确所在的区域（可能是一个子区域）。
+        // zoneId 通常是 areaId 的父区域（AreaTable::ParentAreaID），用于更粗粒度的逻辑，通常对应玩家看到的地图大区名称。
+        // • 艾尔文森林（Elwynn Forest）是一个 zone。
+        //     • 你从北郡修道院（Northshire Abbey）走到闪金镇（Goldshire）：
+        //         • areaId 会变（不同小区域），
+        //         • zoneId 仍是“艾尔文森林”。
+        // • 暴风城（Stormwind City）是一个 zone。
+        //     • 在城内不同街区移动：
+        //
+        // 常用于
+        // • PVP 区域判定（安全区/战斗区）
+        // • 脚本触发条件
+        // • 天气/音乐/环境效果
+        // • 任务/成就/探索逻辑
+        //
+        // 这个和 grid/cell 是不同的
+        // 例子 1：格子加载 vs. 区域逻辑
+        // • 玩家走到一个新位置：
+        //     • grid/cell：决定是否要加载附近怪物/物件、触发 AI 更新（服务器内部加载机制）。
+        //     • areaId/zoneId：决定你是否进入“艾尔文森林”/“暴风城”区域，影响 PVP 状态、音乐、任务条件。
+        // 例子 2：同一 map，不同 area
+        // • mapId=0（东部王国）里有很多区域：
+        //     • 你从西部荒野走到艾尔文森林，mapId 不变。
+        //     • 但 areaId/zoneId 会变，触发不同任务与脚本逻辑。
+        //     • grid/cell 只是坐标分块，不关心你进入了哪个“地区名”。
+        // 例子 3：跨 grid/cell 不一定跨区域
+        // • 你在暴风城里走几步就可能跨越多个 cell。
+        // • areaId 可能完全不变，但 grid/cell 会变，服务器可能加载/卸载附近对象。
+        // 例子 4：PVP 规则
+        // • 服务器用 zoneId 判断是否是 PVP 区（如冬拥湖）。
+        // • grid/cell 对 PVP 完全无意义，它只是空间组织。
         uint32 m_zoneId;
         uint32 m_areaId;
         float m_staticFloorZ;

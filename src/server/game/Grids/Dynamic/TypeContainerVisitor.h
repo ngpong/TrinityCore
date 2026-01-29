@@ -52,7 +52,7 @@ void VisitorHelper(VISITOR &v, ContainerMapList<T> &c)
 }
 // recursion container map list
 template<class VISITOR, class H, class T>
-void VisitorHelper(VISITOR &v, ContainerMapList<TypeList<H, T> > &c)
+void VisitorHelper(VISITOR &v, ContainerMapList<TypeList<H, T>> &c)
 {
     VisitorHelper(v, c._HeadElements);
     VisitorHelper(v, c._TailElements);

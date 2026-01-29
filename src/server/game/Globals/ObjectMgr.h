@@ -1666,6 +1666,10 @@ class TC_GAME_API ObjectMgr
         typedef std::unordered_map<uint32, ItemSetNameEntry> ItemSetNameContainer;
         ItemSetNameContainer _itemSetNameStore;
 
+        // mapObjectGuidsStore 存的是刷出信息的索引（GUID 集合），不代表对象已实例化。
+        // 网格首次加载时，ObjectGridLoader::LoadN() 会根据这些 GUID 去 LoadFromDB 创建实体（若满足 ShouldBeSpawnedOnGridLoad）。
+        // 即使对象已经被创建了，GUID 仍然会保留在 _mapObjectGuidsStore 里（它是静态刷点索引，不是已实例对象列表）。
+        // Pool/GameEvent 等动态系统会把 GUID 加入或移除该索引，从而控制后续网格加载时是否会创建。
         MapObjectGuids _mapObjectGuidsStore;
         CreatureDataContainer _creatureDataStore;
         CreatureTemplateContainer _creatureTemplateStore;

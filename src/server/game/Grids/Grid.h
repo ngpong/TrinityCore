@@ -34,7 +34,8 @@
 #include "TypeContainerVisitor.h"
 
 // forward declaration
-template<class A, class T, class O> class GridLoader;
+template<class A, class T, class O>
+class GridLoader;
 
 // ACTIVE_OBJECT      = Player
 // WORLD_OBJECT_TYPES = TypeList<Player, TypeList<Creature, TypeList<Corpse, TypeList<DynamicObject, TypeNull>>>>
@@ -43,7 +44,9 @@ template<class ACTIVE_OBJECT, class WORLD_OBJECT_TYPES, class GRID_OBJECT_TYPES>
 class Grid
 {
     // allows the GridLoader to access its internals
-    template<class A, class T, class O> friend class GridLoader;
+    template<class A, class T, class O>
+    friend class GridLoader;
+
     public:
 
         /** destructor to clean up its resources. This includes unloading the

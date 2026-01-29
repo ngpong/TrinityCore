@@ -66,15 +66,15 @@ class Player;
 #define MAP_HALFSIZE            (MAP_SIZE/2)
 
 // AllWorldObjectTypes:
-//   Player -> Creature -> Corpse -> DynamicObject -> TypeNull
-// AllWorldObjectTypes     = TypeList<Player, TypeList<Creature, TypeList<Corpse, TypeList<DynamicObject, TypeNull>>>>
+//   Player ► Creature ► Corpse ► DynamicObject ► TypeNull
+// AllWorldObjectTypes = TypeList<Player, TypeList<Creature, TypeList<Corpse, TypeList<DynamicObject, TypeNull>>>>
 //
 // AllGridObjectTypes:
-//   GameObject -> Creature -> DynamicObject -> Corpse -> TypeNull
-// AllGridObjectTypes      = TypeList<GameObject, TypeList<Creature, TypeList<DynamicObject, TypeList<Corpse, TypeNull>>>>
+//   GameObject ► Creature ► DynamicObject ► Corpse ► TypeNull
+// AllGridObjectTypes = TypeList<GameObject, TypeList<Creature, TypeList<DynamicObject, TypeList<Corpse, TypeNull>>>>
 //
 // AllMapStoredObjectTypes:
-//   Creature -> GameObject -> DynamicObject -> Pet -> Corpse -> TypeNull
+//   Creature ► GameObject ► DynamicObject ► Pet ► Corpse ► TypeNull
 // AllMapStoredObjectTypes = TypeList<Creature, TypeList<GameObject, TypeList<DynamicObject, TypeList<Pet, TypeList<Corpse, TypeNull>>>>>
 
 // Creature used instead pet to simplify *::Visit templates (not required duplicate code for Creature->Pet case)
@@ -107,6 +107,10 @@ enum GridMapTypeMask
 // extern template class TypeMapContainer<AllWorldObjectTypes>;
 
 typedef Grid<Player, AllWorldObjectTypes, AllGridObjectTypes> GridType;
+// AllWorldObjectTypes:
+//   Player ► Creature ► Corpse ► DynamicObject ► TypeNull
+// AllGridObjectTypes:
+//   GameObject ► Creature ► DynamicObject ► Corpse ► TypeNull
 typedef NGrid<MAX_NUMBER_OF_CELLS, Player, AllWorldObjectTypes, AllGridObjectTypes> NGridType;
 
 typedef TypeMapContainer<AllGridObjectTypes> GridTypeMapContainer;

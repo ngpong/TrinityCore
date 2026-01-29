@@ -146,8 +146,12 @@ struct WaypointMovementFactory : public MovementGeneratorCreator
     MovementGenerator* Create(Unit* object) const override;
 };
 
+// MovementGeneratorCreator ► FactoryHolder<MovementGenerator, Unit, MovementGeneratorType>
 typedef MovementGeneratorCreator::FactoryHolderRegistry MovementGeneratorRegistry;
 
+// MovementGeneratorRegistry ► FactoryHolder<MovementGenerator, Unit, MovementGeneratorType>::FactoryHolderRegistry
+// 事实上，现在 TC 的逻辑中，使用 sMovementGeneratorRegistry 只是用来获取默认的三种类型(RANDOM_MOTION_TYPE/IDLE_MOTION_TYPE/WAYPOINT_MOTION_TYPE)的移动生成器；
+// 其余类型的移动，都直接在 MotionMaster.cpp 中直接 new 出来；
 #define sMovementGeneratorRegistry MovementGeneratorRegistry::instance()
 
 #endif

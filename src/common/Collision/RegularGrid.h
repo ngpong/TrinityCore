@@ -30,11 +30,12 @@ struct NodeCreator{
     static Node * makeNode(int /*x*/, int /*y*/) { return new Node();}
 };
 
-template<class T,
-class Node,
-class NodeCreatorFunc = NodeCreator<Node>,
-class BoundsFunc = BoundsTrait<T>,
-class PositionFunc = PositionTrait<T>
+template<
+  class T,
+  class Node,
+  class NodeCreatorFunc = NodeCreator<Node>,
+  class BoundsFunc = BoundsTrait<T>,
+  class PositionFunc = PositionTrait<T>
 >
 class TC_COMMON_API RegularGrid2D
 {

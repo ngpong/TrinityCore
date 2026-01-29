@@ -134,6 +134,7 @@ void Object::AddToWorld()
 
     // synchronize values mirror with values array (changes will send in updatecreate opcode any way
     ASSERT(!m_objectUpdated);
+    // 清空更新掩码；把 _changesMask 清零，保证进入世界时不会带着旧的更新状态
     ClearUpdateMask(false);
 
     // Set new ref when adding to world (except if we already have one - also set in constructor to allow scripts to work in initialization phase)
@@ -1100,9 +1101,28 @@ float WorldObject::GetDistanceZ(WorldObject const* obj) const
     return (dist > 0 ? dist : 0);
 }
 
+// 判断当前 WorldObject（this）和另一个 WorldObject（obj）之间的距离是否在给定阈值内
 bool WorldObject::_IsWithinDist(WorldObject const* obj, float dist2compare, bool is3D, bool incOwnRadius, bool incTargetRadius) const
 {
-    // 计算大小因子，检测是否包含我方或地方的战斗触发范围
+    // 修正判断距离
+    // 
+    // dist2compare: 用作比较的距离
+    //
+    // 一个单位是拥有体积的，在用作距离计算时通常被近似成一个圆/球体
+    // 此时，圆心则表示为 Position；模型半径（也可叫做战斗触达半径）则表示为 GetCombatReach()
+    //
+    // 当我们要计算一个单位与另一个单位之间的距离是否在 dist2compare 内时，不能比较两个单位的圆心之间的距离，此
+    // 时还需要考虑模型的半径范围；因为模型的体积不同，只是单纯的比较圆心就可能会出现模型已经出现相撞但是圆心距
+    // 离任不符合的情况
+    //
+    // 设当前单位的模型半径为 rA，目标单位的模型半径为 rB，要比较两个单位之间的距离是否满足 dist2compare，
+    // dist2compare 应当被修正为：dist2compare + rA + rB
+    //
+    // incOwnRadius/incTargetRadius 两个开关决定是否把双方的 GetCombatReach 加进去:
+    // • 只算施法者半径: dist2compare + rA
+    // • 只算目标半径  : dist2compare + rB
+    // • 都算          : dist2compare + rA + rB
+    // • 都不算        : dist2compare
     float sizefactor = 0;
     sizefactor += incOwnRadius ? GetCombatReach() : 0.0f;
     sizefactor += incTargetRadius ? obj->GetCombatReach() : 0.0f;
@@ -1112,15 +1132,19 @@ bool WorldObject::_IsWithinDist(WorldObject const* obj, float dist2compare, bool
     Position const* thisOrTransport = this;
     Position const* objOrObjTransport = obj;
 
-    // 包含传送工具时的检测
+    // 如果当前对象 this 与目标对象 obj 相处在同一个交通工具上
     if (GetTransport() && obj->GetTransport() && obj->GetTransport()->GetGUID() == GetTransport()->GetGUID())
     {
         thisOrTransport = &m_movementInfo.transport.pos;
         objOrObjTransport = &obj->m_movementInfo.transport.pos;
     }
 
+    // 下面要计算的就是 thisOrTransport 和 objOrObjTransport 之间的距离是否在 maxdist 之类；
+    // 使用的算法是勾股定理计算；
+    //
+    // 例如，在二维平面计算点 A(x1, y1) 与点 B(x2, y2) 之间的距离是否在 R 以内，那么就可以转换公式为：
+    // | (x2 - x1)^2 + (y2 - y1)^2 | < R^2
     if (is3D)
-        // 计算记录，计算caster与受害者之间的相对距离是否 < maxdist
         return thisOrTransport->IsInDist(objOrObjTransport, maxdist);
     else
         return thisOrTransport->IsInDist2d(objOrObjTransport, maxdist);
@@ -1511,11 +1535,15 @@ float WorldObject::GetGridActivationRange() const
 
 float WorldObject::GetVisibilityRange() const
 {
+    // 对非玩家对象，如果设置了单体覆盖可见距离，就用覆盖值。 
     if (IsVisibilityOverridden() && !ToPlayer())
         return *m_visibilityDistanceOverride;
+    // 对非玩家对象，如果被标成“远可见”，就把可见距离拉到系统允许的最大值。
+    // 常用于：需要远处就能看到/同步的特殊物体（比如某些大型物件、重要单位、特殊光柱/触发器/世界事件相关对象等，具体看 TC 的使用点）。
     else if (IsFarVisible() && !ToPlayer())
         return MAX_VISIBILITY_DISTANCE;
     else
+    // 否则走地图的默认可见距离（Map 级别的配置/动态计算值）。
         return GetMap()->GetVisibilityRange();
 }
 
@@ -1564,19 +1592,23 @@ bool WorldObject::CheckPrivateObjectOwnerVisibility(WorldObject const* seer) con
     return false;
 }
 
+// 以当前对象 this 的视角，我是否应该把 obj 当成能看见/能侦测到？
 bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool implicitDetect, bool distanceCheck, bool checkAlert) const
 {
     if (this == obj)
         return true;
 
-    // 检查 object 是否在地图中，且 this 和 objects 在同一个地图同一个区域
+    // 检查 obj 是否在地图中，且 this 和 obj 在同一个地图，且 this 和 obj 的 PhaseMask 相同。
     if (obj->IsNeverVisible(implicitDetect) || CanNeverSee(obj))
         return false;
 
-    // 这两个函数没有实现，恒返回 false
+    // IsAlwaysVisibleFor 函数在 Unit 和 GameObject 中被重写。
+    // CanAlwaysSee 函数在 Creature 和 Player 中被重写。
     if (obj->IsAlwaysVisibleFor(this) || CanAlwaysSee(obj))
         return true;
 
+    // 私有对象(private object)的所有权可见性。
+    // 很多对象可能是"只对拥有者/特定人可见"的（类似：个人掉落、个人相位对象、脚本私有物体）。
     if (!obj->CheckPrivateObjectOwnerVisibility(this))
         return false;
 
@@ -1587,8 +1619,13 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool implicitDetect, bo
         bool corpseCheck = false;
         if (Player const* thisPlayer = ToPlayer())
         {
-            // 这里检查目标玩家和当前玩家是否都能看见灵魂？
-            // 检查尸体是否对当前玩家还有目标玩家可见，因为玩家死了后尸体和灵魂是可以处于不同位置的
+            // 玩家处于"鬼魂状态"时的特殊尸体可见性判定。
+            //
+            // 当你是 ghost 状态时，有些对象的 ghost visibility 规则可能让你正常看不到，但如果
+            // 你的尸体和目标彼此在视距内，则允许可见（corpseVisibility=true）。
+            //
+            // 检查尸体是否对当前玩家还有目标玩家可见，因为玩家死了后尸体和灵魂是可以处于不同位置的。
+            //
             if (thisPlayer->isDead() && thisPlayer->GetHealth() > 0 && // Cheap way to check for ghost state
                 !(obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & GHOST_VISIBILITY_GHOST))
             {
@@ -1601,7 +1638,7 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool implicitDetect, bo
                 }
             }
 
-            // 应该是交通工具的一些检查
+            // 如果目标 unit 是载具的附件/乘员/配件，但你连载具本体都没在客户端看到，就不允许你"单独"看到这个附件。
             if (Unit const* target = obj->ToUnit())
             {
                 // Don't allow to detect vehicle accessories if you can't see vehicle
@@ -1611,6 +1648,8 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool implicitDetect, bo
             }
         }
 
+        // 此处用的是玩家身上的 viewpoint(视角) 做距离计算的，而非玩家本身。
+        // 你此刻从哪里看世界的那个对象；距离判断用它的位置来算，才能在载具、镜头切换等情况下保持可见性正确。
         WorldObject const* viewpoint = this;
         if (Player const* player = ToPlayer())
             viewpoint = player->GetViewpoint();
@@ -1618,20 +1657,27 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool implicitDetect, bo
         if (!viewpoint)
             viewpoint = this;
 
+        // 开始判断距离；
+        // IsWithinDist 已经包含了注释；
+        // GetSightRange 是获取对象的可视距离，可能受 stealth、光环、GM 等影响，具体在别处实现。
         if (!corpseCheck && !viewpoint->IsWithinDist(obj, GetSightRange(obj), false))
             return false;
     }
 
+    // GM 相关可见性（SERVERSIDE_VISIBILITY_GM）
     // GM visibility off or hidden NPC
     if (!obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GM))
     {
+        // 目标没有开启 GM 隐身层级
         // Stop checking other things for GMs
         if (m_serverSideVisibilityDetect.GetValue(SERVERSIDE_VISIBILITY_GM))
             return true;
     }
     else
+        // 目标开启了 GM 隐身层级
         return m_serverSideVisibilityDetect.GetValue(SERVERSIDE_VISIBILITY_GM) >= obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GM);
 
+    // 这里同样是做的灵魂/尸体的判断
     // Ghost players, Spirit Healers, and some other NPCs
     if (!corpseVisibility && !(obj->m_serverSideVisibility.GetValue(SERVERSIDE_VISIBILITY_GHOST) & m_serverSideVisibilityDetect.GetValue(SERVERSIDE_VISIBILITY_GHOST)))
     {
@@ -1650,9 +1696,11 @@ bool WorldObject::CanSeeOrDetect(WorldObject const* obj, bool implicitDetect, bo
             return false;
     }
 
+    // 这个是对象正在消失/被 despawn 标记隐藏，不管你侦测能力多强，也不给看
     if (obj->IsInvisibleDueToDespawn())
         return false;
 
+    // 此函数用于处理一些隐身/潜行的可见性检测判断
     if (!CanDetect(obj, implicitDetect, checkAlert))
         return false;
 
@@ -1664,6 +1712,7 @@ bool WorldObject::CanNeverSee(WorldObject const* obj) const
     return GetMap() != obj->GetMap() || !InSamePhase(obj);
 }
 
+// 此函数用于处理一些隐身/潜行的可见性检测判断
 bool WorldObject::CanDetect(WorldObject const* obj, bool implicitDetect, bool checkAlert) const
 {
     WorldObject const* seer = this;
@@ -1994,16 +2043,22 @@ void Map::SummonCreatureGroup(uint8 group, std::list<TempSummon*>* list /*= null
                 list->push_back(summon);
 }
 
+// 给当前对象绑定一个区域脚本入口 m_zoneScript，后续对象在各种事件里（进出区域、击杀、占点、
+// 光环、召唤、阵营规则等）可以通过 GetZoneScript() 找到这张地图/这个区域应该由谁接管逻辑。
 void WorldObject::SetZoneScript()
 {
     if (Map* map = FindMap())
     {
+        // 如果是副本实例：直接绑定 InstanceScript
         if (InstanceMap* instanceMap = map->ToInstanceMap())
             m_zoneScript = reinterpret_cast<ZoneScript*>(instanceMap->GetInstanceScript());
+        // 如果不是副本，并且不是战场/竞技场
         else if (!map->IsBattlegroundOrArena())
         {
+            // 战场区域，比如冬拥湖、托尔巴拉德那种大规模战役
             if (Battlefield* bf = sBattlefieldMgr->GetBattlefieldToZoneId(GetZoneId()))
                 m_zoneScript = bf;
+            // 野外 PVP 区域，比如占塔、阵营 Buff 区域
             else
                 m_zoneScript = sOutdoorPvPMgr->GetZoneScript(GetZoneId());
         }
@@ -3488,6 +3543,7 @@ void WorldObject::DestroyForNearbyPlayers()
     if (!IsInWorld())
         return;
 
+    // 此处会访问 this 实例所在网格中，处于 this 可是距离范围内的所有类型为 Player 的对象并填充至 targets
     std::list<Player*> targets;
     Trinity::AnyPlayerInObjectRangeCheck check(this, GetVisibilityRange(), false);
     Trinity::PlayerListSearcher<Trinity::AnyPlayerInObjectRangeCheck> searcher(this, targets, check);
@@ -3496,14 +3552,18 @@ void WorldObject::DestroyForNearbyPlayers()
     {
         Player* player = (*iter);
 
+        // 过滤掉自己
         if (player == this)
             continue;
 
+        // 只有当服务器认为该玩家客户端已经见过/已加载过（收到过该对象的 create/update）这个对象，才需要操作；
+        // 具体查看 m_clientGUIDs 成员的注释。
         if (!player->HaveAtClient(this))
             continue;
 
         if (Unit const* unit = ToUnit())
         {
+            // 魅惑者/傀儡不销毁
             if (unit->GetCharmerGUID() == player->GetGUID()) /// @todo this is for puppet
                 continue;
 

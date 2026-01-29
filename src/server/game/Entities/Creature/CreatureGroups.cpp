@@ -265,6 +265,7 @@ void CreatureGroup::FormationReset(bool dismiss)
     {
         if (pair.first != _leader && pair.first->IsAlive())
         {
+            // 如果要剔除 
             if (dismiss)
                 pair.first->GetMotionMaster()->Remove(FORMATION_MOTION_TYPE, MOTION_SLOT_DEFAULT);
             else
